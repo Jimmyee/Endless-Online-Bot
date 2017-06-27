@@ -17,5 +17,16 @@ void Talk_Player(PacketReader reader)
         name = s.map.characters[i].name;
     }
 
-    s.eprocessor.chat_bot.ProcessMessage(name, message);
+    if(message[0] == '#' && name == s.config.values["Master"])
+    {
+        message.erase(0, 1);
+        if(message == "exit")
+        {
+            s.call_exit = true;
+        }
+    }
+    else
+    {
+        s.eprocessor.chat_bot.ProcessMessage(name, message);
+    }
 }

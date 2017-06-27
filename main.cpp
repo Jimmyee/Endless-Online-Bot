@@ -27,22 +27,46 @@ int main()
 
     S &s = S::GetInstance();
 
-    if(s.eoclient.Connect())
-    {
-        s.eoclient.RequestInit();
-    }
+    sf::Clock reconnect_clock;
+    sf::Clock init_clock;
+    bool reconnect = false;
 
     while (!s.call_exit)
     {
-        bool was_connected = s.eoclient.Connected();
-
         s.eoclient.Tick();
 
-        if(!s.eoclient.Connected() && was_connected)
+        if(!s.eoclient.Connected())
         {
-            if(s.eoclient.Connect())
+            bool connect = false;
+            if(reconnect)
             {
-                s.eoclient.RequestInit();
+                if(reconnect_clock.getElapsedTime().asSeconds() >= 5)
+                {
+                    connect = true;
+                    reconnect_clock.restart();
+                }
+            }
+            else
+            {
+                connect = true;
+            }
+
+            if(connect)
+            {
+                if(s.eoclient.Connect())
+                {
+                    s.eoclient.RequestInit();
+                    init_clock.restart();
+                }
+            }
+            reconnect = true;
+        }
+        else
+        {
+            if(s.eoclient.GetState() == EOClient::State::Uninitialized && init_clock.getElapsedTime().asSeconds() >= 10)
+            {
+                puts("Initialization time out.");
+                s.eoclient.Disconnect();
             }
         }
 

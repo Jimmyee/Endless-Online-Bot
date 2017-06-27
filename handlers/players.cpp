@@ -54,7 +54,7 @@ void Players_Agree(PacketReader reader)
     message += ", HP " + std::to_string(character.hp) + ", TP " + std::to_string(character.tp) + ".";
     if(character.hp <= 60) message += " Easy to kill.";*/
 
-    std::string message = std::string() + "Hi " + name + ".";
+    std::string message = std::string() + "hi " + name + "";
 
     s.eprocessor.DelayedMessage(message);
 
