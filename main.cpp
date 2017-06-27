@@ -27,6 +27,11 @@ int main()
 
     S &s = S::GetInstance();
 
+    if(s.eoclient.Connect())
+    {
+        s.eoclient.RequestInit();
+    }
+
     while (!s.call_exit)
     {
         bool was_connected = s.eoclient.Connected();
@@ -35,7 +40,10 @@ int main()
 
         if(!s.eoclient.Connected() && was_connected)
         {
-            s.eoclient.Connect();
+            if(s.eoclient.Connect())
+            {
+                s.eoclient.RequestInit();
+            }
         }
 
         s.eprocessor.Process();

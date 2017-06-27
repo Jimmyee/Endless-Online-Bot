@@ -46,18 +46,20 @@ void Login_Reply(PacketReader reader)
         s.eoclient.SetState(EOClient::State::LoggedIn);
 
         std::string charname = s.config.values["Character"];
-        unsigned int select_id = 0;
+        int index = -1;
         for(unsigned int i = 0; i < s.eoclient.account.characters.size(); ++i)
         {
             if(s.eoclient.account.characters[i].name == charname)
             {
-                select_id = s.eoclient.account.characters[i].id;
+                index = i;
             }
         }
 
-        if(select_id != 0)
+        if(index != -1)
         {
-            s.eoclient.SelectCharacter(select_id);
+            //sf::sleep(sf::seconds(1.0));
+            s.eoclient.SelectCharacter(s.eoclient.account.characters[index].id);
+            s.character = s.eoclient.account.characters[index];
         }
     }
     else
