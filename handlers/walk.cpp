@@ -2,6 +2,7 @@
 
 #include "handlers.hpp"
 #include "../singleton.hpp"
+#include "../util.hpp"
 
 void Walk_Player(PacketReader reader)
 {
@@ -16,18 +17,12 @@ void Walk_Player(PacketReader reader)
     s.map.characters[i].x = reader.GetChar();
     s.map.characters[i].y = reader.GetChar();
 
-    if(s.eprocessor.sex_act.get())
+    //int distance = path_length(s.character.x, s.character.y, s.map.characters[i].x, s.map.characters[i].y);
+
+    if(!s.eprocessor.chase_bot.go_center &&
+       (s.eprocessor.chase_bot.follow_clock.getElapsedTime().asSeconds() >= 120 || s.eprocessor.chase_bot.victim_gameworld_id == -1))
     {
-        if(gameworld_id ==  s.eprocessor.sex_act->victim_gameworld_id)
-        {
-            if(s.map.characters[i].x == s.character.x && s.map.characters[i].y == s.character.y)
-            {
-                s.eprocessor.sex_act->fuck = true;
-            }
-            else
-            {
-                s.eprocessor.sex_act->fuck = false;
-            }
-        }
+        s.eprocessor.chase_bot.victim_gameworld_id = gameworld_id;
+        s.eprocessor.chase_bot.follow_clock.restart();
     }
 }

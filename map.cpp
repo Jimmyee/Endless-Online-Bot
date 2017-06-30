@@ -85,3 +85,24 @@ void Map::RemoveNPC(unsigned char gameworld_index)
         this->npcs.erase(this->npcs.begin() + i);
     }
 }
+
+bool Map::Occupied(unsigned char x, unsigned char y)
+{
+    for(unsigned int i = 0; i < this->characters.size(); ++i)
+    {
+        if(this->characters[i].x == x && this->characters[i].y == y)
+        {
+            return true;
+        }
+    }
+
+    for(unsigned int i = 0; i < this->npcs.size(); ++i)
+    {
+        if(this->npcs[i].x == x && this->npcs[i].y == y)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}

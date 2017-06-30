@@ -39,24 +39,4 @@ void Players_Agree(PacketReader reader)
     reader.GetByte(); // 0 = NPC, 1 = player
 
     s.map.characters.push_back(character);
-
-    for(unsigned int i = 0; i < s.eprocessor.players_known.size(); ++i)
-    {
-        if(s.eprocessor.players_known[i] == character.gameworld_id)
-        {
-            return;
-        }
-    }
-
-    std::string name = character.name;
-    name[0] = std::toupper(character.name[0]);
-    /*std::string message = std::string() + "Hi " + name + " [" + character.guild_tag + "]. L" + std::to_string(character.level);
-    message += ", HP " + std::to_string(character.hp) + ", TP " + std::to_string(character.tp) + ".";
-    if(character.hp <= 60) message += " Easy to kill.";*/
-
-    std::string message = std::string() + "hi " + name + "";
-
-    s.eprocessor.DelayedMessage(message);
-
-    s.eprocessor.players_known.push_back(character.gameworld_id);
 }

@@ -39,6 +39,10 @@ void Welcome_Reply(PacketReader reader)
             s.map.Reset();
             printf("Map [%i] loaded.\n", map_id);
         }
+        else
+        {
+            printf("Could not load map [%i].\n", map_id);
+        }
 
         std::array<unsigned char, 4> map_rid;
         PacketReader reader_copy(reader);
@@ -196,7 +200,7 @@ void Welcome_Reply(PacketReader reader)
             s.map.npcs.push_back(npc);
         }
         reader.GetByte();
-        // TODO: read the rest
+        // TODO: read items on the map
 
         s.eoclient.UnregisterHandler(PacketFamily::Login, PacketAction::Reply);
         s.eoclient.UnregisterHandler(PacketFamily::Welcome, PacketAction::Reply);
@@ -205,6 +209,7 @@ void Welcome_Reply(PacketReader reader)
         s.eoclient.RegisterHandler(PacketFamily::Avatar, PacketAction::Remove, Avatar_Remove);
         s.eoclient.RegisterHandler(PacketFamily::Walk, PacketAction::Player, Walk_Player);
         s.eoclient.RegisterHandler(PacketFamily::Talk, PacketAction::Player, Talk_Player);
+        s.eoclient.RegisterHandler(PacketFamily::Talk, PacketAction::Tell, Talk_Tell);
         s.eoclient.RegisterHandler(PacketFamily::Sit, PacketAction::Player, Sit_Player);
         s.eoclient.RegisterHandler(PacketFamily::Sit, PacketAction::Close, Sit_Close);
 
@@ -220,7 +225,13 @@ void Welcome_Reply(PacketReader reader)
         s.eoclient.RegisterHandler(PacketFamily::Appear, PacketAction::Reply, Appear_Reply);
         s.eoclient.RegisterHandler(PacketFamily::NPC, PacketAction::Spec, NPC_Spec);
 
+        s.eoclient.RegisterHandler(PacketFamily::Refresh, PacketAction::Reply, Refresh_Reply);
+
         s.eoclient.SetState(EOClient::State::Playing);
+
+        PacketBuilder packet(PacketFamily::Emote, PacketAction::Report);
+        packet.AddChar((unsigned char)Emote::Hearts);
+        s.eoclient.Send(packet);
     }
 
     //s.eoclient.Talk("[EOAwaken v0.0.1] For god's sake, I don't even see anything on the screen!");

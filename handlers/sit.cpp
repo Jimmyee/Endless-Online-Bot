@@ -22,16 +22,6 @@ void Sit_Player(PacketReader reader)
     {
         s.character.sitting = s.map.characters[i].sitting;
     }
-
-    if(s.map.characters[i].gameworld_id == s.character.gameworld_id && s.eprocessor.sex_act.get())
-    {
-        s.eprocessor.sex_act->sits++;
-        s.eprocessor.sex_act->sit_request = false;
-        s.eprocessor.sex_act->clock.restart();
-        PacketBuilder packet(PacketFamily::Emote, PacketAction::Report);
-        packet.AddChar((unsigned char)Emote::Hearts);
-        s.eoclient.Send(packet);
-    }
 }
 
 void Sit_Close(PacketReader reader)
@@ -50,14 +40,5 @@ void Sit_Close(PacketReader reader)
     if(s.map.characters[i].gameworld_id == s.character.gameworld_id)
     {
         s.character.sitting = s.map.characters[i].sitting;
-    }
-
-    if(s.map.characters[i].gameworld_id == s.character.gameworld_id && s.eprocessor.sex_act.get())
-    {
-        s.eprocessor.sex_act->sit_request = false;
-        s.eprocessor.sex_act->clock.restart();
-        PacketBuilder packet(PacketFamily::Emote, PacketAction::Report);
-        packet.AddChar((unsigned char)Emote::Hearts);
-        s.eoclient.Send(packet);
     }
 }

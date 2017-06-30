@@ -2,6 +2,7 @@
 #define EVENTPROCESSOR_HPP_INCLUDED
 
 #include "config.hpp"
+#include "const/character.hpp"
 
 #include <SFML/System.hpp>
 #include <vector>
@@ -19,6 +20,40 @@ struct ChatBot
     void ProcessMessage(std::string name, std::string message);
 };
 
+struct EORoulette
+{
+    bool run;
+    short gameworld_id;
+    sf::Clock clock;
+    int gold_given;
+    int spins;
+    int max_spins;
+    int spin_delay;
+    bool play;
+    short winner;
+
+    EORoulette();
+    void Run(short gameworld_id);
+    void Process();
+};
+
+struct ChaseBot
+{
+    short victim_gameworld_id;
+    sf::Clock walk_clock;
+    sf::Clock follow_clock;
+    unsigned char center_x;
+    unsigned char center_y;
+    bool go_center;
+
+    ChaseBot();
+    void Reset();
+    void Process();
+    bool Walk(Direction direction);
+    void WalkTo(unsigned char x, unsigned char y);
+    void Act();
+};
+
 struct EventProcessor
 {
     struct Trade
@@ -32,19 +67,6 @@ struct EventProcessor
         Trade(short victim_gameworld_id_) { victim_gameworld_id = victim_gameworld_id_; player_accepted = false; victim_accepted = false; }
     };
 
-    struct SexAct
-    {
-        short victim_gameworld_id;
-        int sits;
-        int max_sits;
-        sf::Clock clock;
-        bool fuck;
-        bool sit_request;
-        sf::Clock timeout_clock;
-
-        SexAct(short victim_gameworld_id_) { victim_gameworld_id = victim_gameworld_id_; sits = 0; max_sits = 0; clock.restart(); fuck = false; sit_request = false; timeout_clock.restart(); }
-    };
-
     struct DelayMessage
     {
         std::string message;
@@ -54,13 +76,15 @@ struct EventProcessor
         DelayMessage(std::string message, int time_ms) { this->message = message; this->time_ms = time_ms; this->clock.restart(); }
     };
 
-    sf::Clock welcome_clock;
-    std::vector<short> players_known;
     std::shared_ptr<Trade> trade;
-    std::shared_ptr<SexAct> sex_act;
-    sf::Clock sex_message_clock;
+    sf::Clock help_message_clock;
     ChatBot chat_bot;
     std::vector<DelayMessage> d_messages;
+    sf::Clock autosave_clock;
+    EORoulette eo_roulette;
+    ChaseBot chase_bot;
+    sf::Clock uptime_clock;
+    sf::Clock refresh_clock;
 
     EventProcessor();
 

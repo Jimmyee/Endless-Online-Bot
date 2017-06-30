@@ -24,8 +24,8 @@ bool EOClient::Connect()
 {
     Config &config = S::GetInstance().config;
 
-    std::string address = config.values["Address"];
-    unsigned short port = std::atoi(config.values["Port"].c_str());
+    std::string address = config.GetEntry("Address").value;
+    unsigned short port = std::atoi(config.GetEntry("Port").value.c_str());
 
     printf("Socket: Connecting to %s:%i\n", address.c_str(), port);
     sf::Socket::Status status = this->socket->connect(address, port);
@@ -385,3 +385,17 @@ void EOClient::Talk(std::string message)
     this->Send(packet);
 }
 
+void EOClient::Face(Direction direction)
+{
+    S::GetInstance().character.direction = direction;
+
+    PacketBuilder packet(PacketFamily::Face, PacketAction::Player);
+    packet.AddChar((unsigned char)direction);
+    this->Send(packet);
+}
+
+void EOClient::RefreshRequest()
+{
+    PacketBuilder packet(PacketFamily::Refresh, PacketAction::Request);
+    this->Send(packet);
+}

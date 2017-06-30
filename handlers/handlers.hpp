@@ -15,6 +15,7 @@ void Players_Agree(PacketReader reader); // Characters appears in range
 void Walk_Player(PacketReader reader);
 
 void Talk_Player(PacketReader reader); // public message
+void Talk_Tell(PacketReader reader); // private message
 
 void Sit_Player(PacketReader reader);
 void Sit_Close(PacketReader reader);
@@ -29,5 +30,7 @@ void Trade_Use(PacketReader reader);
 
 void Appear_Reply(PacketReader reader); // NPC appears in range
 void NPC_Spec(PacketReader reader);
+
+void Refresh_Reply(PacketReader reader);
 
 #endif // HANDLERS_HPP_INCLUDED

@@ -9,19 +9,28 @@ void Trade_Request(PacketReader reader)
     short gameworld_id = reader.GetShort();
     std::string name = reader.GetEndString();
 
-    if(!s.eprocessor.trade.get() && !s.eprocessor.sex_act.get())
+    if(!s.eprocessor.trade.get() && s.eprocessor.eo_roulette.run)
     {
-        PacketBuilder packet(PacketFamily::Trade, PacketAction::Accept);
-        packet.AddChar(1);
-        packet.AddShort(gameworld_id);
-        s.eoclient.Send(packet);
-    }
-    else if(s.eprocessor.sex_act.get())
-    {
-        std::string name = name;
-        name[0] = std::toupper(name[0]);
-
-        s.eoclient.Talk(std::string() + name + ": sorry my darling I'm busy at the moment.");
+        if(!s.eprocessor.eo_roulette.play)
+        {
+            if(s.eprocessor.eo_roulette.winner == -1)
+            {
+                PacketBuilder packet(PacketFamily::Trade, PacketAction::Accept);
+                packet.AddChar(138);
+                packet.AddShort(gameworld_id);
+                s.eoclient.Send(packet);
+            }
+            else
+            {
+                if(gameworld_id == s.eprocessor.eo_roulette.winner)
+                {
+                    PacketBuilder packet(PacketFamily::Trade, PacketAction::Accept);
+                    packet.AddChar(138);
+                    packet.AddShort(gameworld_id);
+                    s.eoclient.Send(packet);
+                }
+            }
+        }
     }
 }
 
@@ -36,10 +45,32 @@ void Trade_Open(PacketReader reader)
 
     s.eprocessor.trade = std::shared_ptr<EventProcessor::Trade>(new EventProcessor::Trade(gameworld_id));
 
-    PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
-    packet.AddShort(1);
-    packet.AddInt(1);
-    s.eoclient.Send(packet);
+    if(!s.eprocessor.eo_roulette.run)
+    {
+        PacketBuilder packet(PacketFamily::Trade, PacketAction::Close);
+        packet.AddChar(138);
+        s.eoclient.Send(packet);
+        return;
+    }
+
+    s.eprocessor.eo_roulette.clock.restart();
+
+    if(s.eprocessor.eo_roulette.winner == -1)
+    {
+        PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
+        packet.AddShort(1);
+        packet.AddInt(1);
+        s.eoclient.Send(packet);
+    }
+    else
+    {
+        PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
+        packet.AddShort(1);
+        packet.AddInt(s.eprocessor.eo_roulette.gold_given);
+        s.eoclient.Send(packet);
+    }
+
+    s.eoclient.Talk("Trading...");
 }
 
 void Trade_Close(PacketReader reader) // other player closed trade
@@ -53,6 +84,8 @@ void Trade_Reply(PacketReader reader) // update of trade items
 {
     S &s = S::GetInstance();
 
+    if(!s.eprocessor.trade.get()) return;
+
     short gameworld_id = reader.GetShort();
 
     s.eprocessor.trade->player_items.clear();
@@ -82,8 +115,16 @@ void Trade_Reply(PacketReader reader) // update of trade items
     }
     reader.GetByte(); // 255
 
-    bool player_put_gold = true;
-    bool victim_put_gold = false;
+    if(!s.eprocessor.eo_roulette.run)
+    {
+        PacketBuilder packet(PacketFamily::Trade, PacketAction::Close);
+        packet.AddChar(138);
+        s.eoclient.Send(packet);
+        return;
+    }
+
+    bool player_put_item = true;
+    bool victim_put_item = false;
 
     int gold_amount = 0;
     for(unsigned int i = 0; i < s.eprocessor.trade->victim_items.size(); ++i)
@@ -91,11 +132,13 @@ void Trade_Reply(PacketReader reader) // update of trade items
         short id = std::get<0>(s.eprocessor.trade->victim_items[i]);
         int amount = std::get<1>(s.eprocessor.trade->victim_items[i]);
 
-        if(id == 1 && amount > 1)
+        if(s.eprocessor.eo_roulette.winner == -1 && id == 1 && amount > 1)
         {
-            victim_put_gold = true;
-
-            gold_amount = amount;
+            victim_put_item = true;
+        }
+        else if(s.eprocessor.eo_roulette.winner != -1)
+        {
+            victim_put_item = true;
         }
     }
 
@@ -104,18 +147,14 @@ void Trade_Reply(PacketReader reader) // update of trade items
         short id = std::get<0>(s.eprocessor.trade->player_items[i]);
         int amount = std::get<1>(s.eprocessor.trade->player_items[i]);
 
-        if(id == 1 && amount > 1)
+        if(id == 1)
         {
-            player_put_gold = true;
+            player_put_item = true;
         }
     }
 
-    if(player_put_gold && victim_put_gold)
+    if(player_put_item && victim_put_item)
     {
-        EventProcessor::SexAct sex_act(s.eprocessor.trade->victim_gameworld_id);
-        sex_act.max_sits = gold_amount * 5;
-        s.eprocessor.sex_act = shared_ptr<EventProcessor::SexAct>(new EventProcessor::SexAct(sex_act));
-
         PacketBuilder packet(PacketFamily::Trade, PacketAction::Agree);
         packet.AddChar(true);
         s.eoclient.Send(packet);
@@ -126,6 +165,8 @@ void Trade_Spec(PacketReader reader) // trade agree status update
 {
     S &s = S::GetInstance();
 
+    if(!s.eprocessor.trade.get()) return;
+
     unsigned char agree = reader.GetChar();
     s.eprocessor.trade->player_accepted = agree;
 }
@@ -133,6 +174,8 @@ void Trade_Spec(PacketReader reader) // trade agree status update
 void Trade_Agree(PacketReader reader) // trade agree status update
 {
     S &s = S::GetInstance();
+
+    if(!s.eprocessor.trade.get()) return;
 
     short victim_gameworld_id = reader.GetShort();
     unsigned char agree = reader.GetChar();
@@ -144,6 +187,8 @@ void Trade_Use(PacketReader reader) // trade finished
 {
     S &s = S::GetInstance();
 
+    if(!s.eprocessor.trade.get()) return;
+
     short gameworld_id = reader.GetShort();
 
     s.eprocessor.trade->player_items.clear();
@@ -173,23 +218,38 @@ void Trade_Use(PacketReader reader) // trade finished
     }
     reader.GetByte(); // 255
 
-    for(unsigned int i = 0; i < s.eprocessor.trade->player_items.size(); ++i)
+    for(unsigned int i = 0; i < s.eprocessor.trade->victim_items.size(); ++i)
     {
-        s.inventory.push_back(s.eprocessor.trade->player_items[i]);
+        s.inventory.push_back(s.eprocessor.trade->victim_items[i]);
+
+        short id = std::get<0>(s.eprocessor.trade->victim_items[i]);
+        int amount = std::get<1>(s.eprocessor.trade->victim_items[i]);
+
+        if(id == 1 && s.eprocessor.eo_roulette.run)
+        {
+            s.eprocessor.eo_roulette.gold_given += amount;
+        }
     }
 
     s.eprocessor.trade.reset();
 
-    s.eprocessor.sex_act->clock.restart();
-    s.eprocessor.sex_act->timeout_clock.restart();
+    if(s.eprocessor.eo_roulette.run)
 
-    int i = s.map.GetCharacterIndex(s.eprocessor.sex_act->victim_gameworld_id);
-    std::string name = s.map.characters[i].name;
-    name[0] = std::toupper(s.map.characters[i].name[0]);
+    {
+        std::string message;
+        if(s.eprocessor.eo_roulette.winner == -1)
+        {
+            s.eprocessor.eo_roulette.clock.restart();
 
-    std::string message = std::string() + "Hey " + name + ", you have paid me gold so we can fuck now. Come and put your neat ass on me.";
-    message += " You've got like " + std::to_string(s.eprocessor.sex_act->max_sits) + " seconds.";
+            message = std::string() + std::to_string(s.eprocessor.eo_roulette.gold_given);
+            message += " gold in the bank. You can still add more gold. Starting in 5 seconds...";
+        }
+        else
+        {
+            s.eprocessor.eo_roulette.run = false;
+            message = "The game has been finished.";
+        }
 
-    s.eoclient.Talk(message);
-
+        s.eoclient.Talk(message);
+    }
 }

@@ -305,7 +305,9 @@ bool EMF::InBounds(unsigned char x, unsigned char y) const
 bool EMF::Walkable(unsigned char x, unsigned char y, bool npc) const
 {
 	if (!InBounds(x, y) || !this->GetTile(x, y).Walkable(npc))
-		return false;
+    {
+        return false;
+    }
 
 	return true;
 }

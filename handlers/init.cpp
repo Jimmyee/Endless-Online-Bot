@@ -24,7 +24,7 @@ void INIT_INIT(PacketReader reader)
         PacketBuilder packet(PacketFamily::Connection, PacketAction::Accept);
         s.eoclient.Send(packet);
 
-        s.eoclient.LoginRequest(s.config.values["Username"], s.config.values["Password"]);
+        s.eoclient.LoginRequest(s.config.GetEntry("Username").value, s.config.GetEntry("Password").value);
     }
     else
     {

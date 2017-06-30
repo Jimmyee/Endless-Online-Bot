@@ -86,6 +86,8 @@ public:
     void AccountCreate(std::string username, std::string password, std::string real_name, std::string location, std::string email);
     void SelectCharacter(unsigned int id);
     void Talk(std::string message);
+    void Face(Direction direction);
+    void RefreshRequest();
 };
 
 #endif // EOCLIENT_HPP_INCLUDED

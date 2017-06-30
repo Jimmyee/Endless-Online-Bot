@@ -70,7 +70,10 @@ int main()
             }
         }
 
-        s.eprocessor.Process();
+        if(s.eoclient.GetState() == EOClient::State::Playing)
+        {
+            s.eprocessor.Process();
+        }
 
         if(s.call_exit)
         {
@@ -79,6 +82,8 @@ int main()
                 s.eoclient.Disconnect();
             }
         }
+
+        sf::sleep(sf::milliseconds(1));
     }
 
     return 0;
