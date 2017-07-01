@@ -10,14 +10,16 @@
 
 struct ChatBot
 {
-    Config config;
     sf::Clock clock;
+    std::vector<std::string> database;
 
     ChatBot();
     ~ChatBot();
     void Load();
+    void Save();
+    std::string GetMessage(std::string message);
     void Process();
-    void ProcessMessage(std::string name, std::string message);
+    void ProcessMessage(std::string message);
 };
 
 struct EORoulette
@@ -25,12 +27,20 @@ struct EORoulette
     bool run;
     short gameworld_id;
     sf::Clock clock;
+    sf::Clock jackpot_clock;
+    sf::Clock reminder_clock;
+    sf::Clock reminder_global;
     int gold_given;
     int spins;
     int max_spins;
     int spin_delay;
     bool play;
     short winner;
+    int total_gold;
+    bool jackpot;
+    int jp_time;
+    Config jpconfig;
+    int payments;
 
     EORoulette();
     void Run(short gameworld_id);
@@ -52,6 +62,17 @@ struct ChaseBot
     bool Walk(Direction direction);
     void WalkTo(unsigned char x, unsigned char y);
     void Act();
+};
+
+struct ItemRequest
+{
+    bool run;
+    short id;
+    short gameworld_id;
+    bool give;
+    sf::Clock clock;
+
+    ItemRequest() { run = false; id = 0; gameworld_id = 0; give = true; this->clock.restart(); }
 };
 
 struct EventProcessor
@@ -85,11 +106,12 @@ struct EventProcessor
     ChaseBot chase_bot;
     sf::Clock uptime_clock;
     sf::Clock refresh_clock;
+    ItemRequest item_request;
 
     EventProcessor();
 
     void Process();
-    void DelayedMessage(std::string message);
+    void DelayedMessage(std::string message, int time_ms = 0);
 };
 
 #endif // EVENTPROCESSOR_HPP_INCLUDED

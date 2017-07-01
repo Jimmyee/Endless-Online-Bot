@@ -85,7 +85,9 @@ public:
     void AccountRequest(std::string username);
     void AccountCreate(std::string username, std::string password, std::string real_name, std::string location, std::string email);
     void SelectCharacter(unsigned int id);
-    void Talk(std::string message);
+    void TalkPublic(std::string message);
+    void TalkGlobal(std::string message);
+    void TalkTell(std::string name, std::string message);
     void Face(Direction direction);
     void RefreshRequest();
 };

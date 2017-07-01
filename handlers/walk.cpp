@@ -20,7 +20,7 @@ void Walk_Player(PacketReader reader)
     //int distance = path_length(s.character.x, s.character.y, s.map.characters[i].x, s.map.characters[i].y);
 
     if(!s.eprocessor.chase_bot.go_center &&
-       (s.eprocessor.chase_bot.follow_clock.getElapsedTime().asSeconds() >= 120 || s.eprocessor.chase_bot.victim_gameworld_id == -1))
+       (s.eprocessor.chase_bot.follow_clock.getElapsedTime().asSeconds() >= 165 || s.eprocessor.chase_bot.victim_gameworld_id == -1))
     {
         s.eprocessor.chase_bot.victim_gameworld_id = gameworld_id;
         s.eprocessor.chase_bot.follow_clock.restart();

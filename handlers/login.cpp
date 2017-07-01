@@ -45,7 +45,7 @@ void Login_Reply(PacketReader reader)
 
         s.eoclient.SetState(EOClient::State::LoggedIn);
 
-        std::string charname = s.config.GetEntry("Character").value;
+        std::string charname = s.config.GetValue("Character");
         int index = -1;
         for(unsigned int i = 0; i < s.eoclient.account.characters.size(); ++i)
         {

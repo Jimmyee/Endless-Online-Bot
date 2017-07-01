@@ -126,11 +126,12 @@ void Welcome_Reply(PacketReader reader)
         s.character.max_weight = reader.GetChar();
 
         // inventory items
+        s.inventory.Clear();
         while(reader.PeekByte() != 255)
         {
             short item_id = reader.GetShort();
             int item_amount = reader.GetInt();
-            s.inventory.push_back(std::make_pair(item_id, item_amount));
+            s.inventory.AddItem(item_id, item_amount);
         }
         reader.GetByte(); // 255
 
@@ -234,5 +235,5 @@ void Welcome_Reply(PacketReader reader)
         s.eoclient.Send(packet);
     }
 
-    //s.eoclient.Talk("[EOAwaken v0.0.1] For god's sake, I don't even see anything on the screen!");
+    //s.eoclient.TalkPublic("[EOAwaken v0.0.1] For god's sake, I don't even see anything on the screen!");
 }

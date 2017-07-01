@@ -24,6 +24,7 @@ public:
     bool Load(std::string filename);
     void Save(std::string filename);
     Entry GetEntry(std::string key);
+    std::string GetValue(std::string key);
 };
 
 #endif // CONFIG_HPP_INCLUDED

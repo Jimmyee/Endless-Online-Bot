@@ -66,8 +66,6 @@ bool Config::Load(std::string filename)
 
 void Config::Save(std::string filename)
 {
-    std::remove(filename.c_str());
-
     std::ofstream file(filename, std::ios::out | std::ios::trunc);
     if(!file.is_open())
     {
@@ -97,4 +95,11 @@ Config::Entry Config::GetEntry(std::string key)
     }
 
     return Entry("", "");
+}
+
+std::string Config::GetValue(std::string key)
+{
+    Entry entry = this->GetEntry(key);
+
+    return entry.value;
 }

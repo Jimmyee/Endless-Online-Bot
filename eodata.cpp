@@ -525,6 +525,19 @@ const EIF_Data& EIF::Get(unsigned int id) const
 		return this->data[0];
 }
 
+EIF_Data &EIF::GetByName(std::string name)
+{
+    for(unsigned int i = 0; i < this->data.size(); ++i)
+    {
+        if(this->data[i].name == name)
+        {
+            return this->data[i];
+        }
+    }
+
+    return this->data[0];
+}
+
 unsigned int EIF::GetKey(int keynum) const
 {
 	for (std::size_t i = 0; i < this->data.size(); ++i)

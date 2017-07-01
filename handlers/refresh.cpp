@@ -8,6 +8,9 @@ void Refresh_Reply(PacketReader reader)
     unsigned char player_amount = reader.GetChar();
     reader.GetByte(); // 255
 
+
+    s.map.characters.clear();
+    s.map.npcs.clear();
     for(int i = 0; i < player_amount; ++i)
     {
         Character *character;

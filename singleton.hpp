@@ -9,7 +9,7 @@
 #include "eventprocessor.hpp"
 #include "eodata.hpp"
 #include "map.hpp"
-
+#include "inventory.hpp"
 
 #include <memory>
 #include <vector>
@@ -45,7 +45,7 @@ public:
 
     Map map;
     Character character;
-    std::vector<std::pair<short, int>> inventory;
+    Inventory inventory;
 };
 
 #endif // SINGLETON_HPP_INCLUDED
