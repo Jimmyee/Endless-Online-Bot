@@ -2,6 +2,7 @@
 
 #include "handlers.hpp"
 #include "../singleton.hpp"
+#include "../eventprocessor.hpp"
 
 std::vector<std::string> Args(std::string str)
 {
@@ -9,10 +10,10 @@ std::vector<std::string> Args(std::string str)
     std::string word;
     for(unsigned int i = 0; i < str.length(); ++i)
     {
-        if((str[i] == ' ' || i == str.length() - 1) && !word.empty())
+        if((str[i] == ' ' || i == str.length() - 1))
         {
             if(str[i] != ' ') word += str[i];
-            args.push_back(word);
+            if(!word.empty()) args.push_back(word);
             word.clear();
         }
         else if(str[i] != ' ')
@@ -37,7 +38,8 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         command = args[0];
     }
 
-    printf("Command: '%s'\n", command.c_str());
+    puts(message.c_str());
+    printf("Command: '%s' %i arguments\n", command.c_str(), args.size());
     if(name == s.config.GetValue("Master"))
     {
         if(command == "exit")
@@ -106,18 +108,90 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
             std::string message = "Jackpot time set to ";
             message += std::to_string(hours) + "h " + std::to_string(minutes) + "m " + std::to_string(seconds) + "s.";
-            s.eprocessor.DelayedMessage(message, 1000);
+            ret.push_back(message);
+        }
+        else if(command == "finditem" && args.size() >= 2)
+        {
+            std::string item_name = "";
+            for(unsigned int i = 1; i < args.size(); ++i)
+            {
+                std::string word = args[i];
+
+                std::transform(word.begin(), word.end(), word.begin(), ::tolower);
+                word[0] = std::toupper(args[i][0]);
+                item_name += word;
+                if(i != args.size() - 1)
+                {
+                    item_name += " ";
+                }
+            }
+
+            EIF_Data eif_data = s.eif->GetByName(item_name);
+            int item_id = eif_data.id;
+            int item_amount = s.inventory.GetItemAmount(item_id);
+
+            std::string message = item_name;
+            message += " amount: " + std::to_string(item_amount);
+            ret.push_back(message);
+        }
+        else if(command == "tradeitem" && args.size() >= 3 && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.lottery.run)
+        {
+            std::string item_name = "";
+            for(unsigned int i = 1; i < args.size() - 1; ++i)
+            {
+                std::string word = args[i];
+
+                std::transform(word.begin(), word.end(), word.begin(), ::tolower);
+                word[0] = std::toupper(args[i][0]);
+                item_name += word;
+                if(i < args.size() - 2)
+                {
+                    item_name += " ";
+                }
+            }
+
+            EIF_Data eif_data = s.eif->GetByName(item_name);
+            int item_id = eif_data.id;
+            int item_amount = std::atoi(args[args.size() - 1].c_str());
+            bool found = s.inventory.FindItem(item_id, item_amount);
+
+            if(found)
+            {
+                ret.push_back(std::string() + "Item " + item_name + " x" + std::to_string(item_amount) + " found.");
+
+                s.eprocessor.item_request.id = item_id;
+                s.eprocessor.item_request.amount = item_amount;
+                s.eprocessor.item_request.gameworld_id = gameworld_id;
+                s.eprocessor.item_request.give = false;
+                s.eprocessor.item_request.run = true;
+                s.eprocessor.item_request.clock.restart();
+
+                PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
+                packet.AddChar(138);
+                packet.AddShort(gameworld_id);
+                s.eoclient.Send(packet);
+            }
+            else
+            {
+                ret.push_back(std::string() + "Item " + item_name + " not found.");
+            }
+        }
+        else
+        {
+            puts("Wrong master command");
         }
     }
 
-    if(command == "eor" && !s.eprocessor.eo_roulette.run)
+    if(command == "eor" && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.lottery.run)
     {
         s.eprocessor.eo_roulette.Run(gameworld_id);
+        int index = s.map.GetCharacterIndex(gameworld_id);
+        s.map.characters[index].eo_roulette = true;
 
         std::string name_upper = name;
         name_upper[0] = std::toupper(name[0]);
 
-        ret.push_back("Welcome to EORoulette! Please trade me gold (at least 2g) to begin the game. You've got 7 seconds.");
+        s.eoclient.TalkPublic("Welcome to EORoulette! Please trade me gold (at least 2g) to begin the game. You've got 12 seconds.");
     }
     else if(command == "uptime")
     {
@@ -135,14 +209,45 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     {
         if(!s.eprocessor.trade.get() && s.eprocessor.eo_roulette.run)
         {
-            if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.winner == -1)
+            if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.winner == -1 && s.eprocessor.eo_roulette.payments < 16)
             {
                 PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
                 packet.AddChar(138);
                 packet.AddShort(gameworld_id);
                 s.eoclient.Send(packet);
+            }
+            else if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.winner == -1 && s.eprocessor.eo_roulette.payments >= 16)
+            {
+                s.eprocessor.DelayedMessage("Sorry, trade limit reached. The game will start shortly", 1000);
+            }
+        }
+        else if(!s.eprocessor.trade.get() && s.eprocessor.lottery.run)
+        {
+            if(!s.eprocessor.lottery.play && s.eprocessor.lottery.winners.empty())
+            {
+                bool found = false;
+                for(unsigned int i = 0; i < s.eprocessor.lottery.picks.size(); ++i)
+                {
+                    if(s.eprocessor.lottery.picks[i].first == gameworld_id)
+                    {
+                        found = true;
+                    }
+                }
+                for(unsigned int i = 0; i < s.eprocessor.lottery.paid.size(); ++i)
+                {
+                    if(s.eprocessor.lottery.paid[i] == gameworld_id)
+                    {
+                        found = false;
+                    }
+                }
 
-                s.eprocessor.eo_roulette.clock.restart();
+                if(found)
+                {
+                    PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
+                    packet.AddChar(138);
+                    packet.AddShort(gameworld_id);
+                    s.eoclient.Send(packet);
+                }
             }
         }
     }
@@ -150,6 +255,14 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     {
         std::string message = "Jackpot: ";
         message += std::to_string(s.eprocessor.eo_roulette.total_gold) + " gold.";
+
+        ret.push_back(message);
+    }
+    else if(command == "jackpotxxl")
+    {
+        std::string message = "Jackpot XXL: ";
+        int amount = s.inventory.GetItemAmount(1);
+        message += std::to_string(amount - s.eprocessor.eo_roulette.total_gold) + " gold.";
 
         ret.push_back(message);
     }
@@ -163,7 +276,9 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         std::string message = "Time left for the jackpot game: ";
         message += std::to_string(hours) + "h " + std::to_string(minutes) + "m " + std::to_string(seconds) + "s.";
-
+        ret.push_back(message);
+        message = "Time date for the jackpot XXL game (once a month): ";
+        message += "4th day of particular month";
         ret.push_back(message);
     }
     else if(command == "wru")
@@ -191,6 +306,8 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         ret.push_back(message);
         message = "After you type #eor, trade desired amount of gold to the bot. It won't start the game if it has no gold.";
         ret.push_back(message);
+        message = "Players that didn't give any gold don't play the game, excluding jackpot game - it's played for everyone.";
+        ret.push_back(message);
         message = "The bot will rotate itself around and will stop at particular direction. The player the bot is faced to wins all the gold given.";
         ret.push_back(message);
         message = "Special jackpot game is played every 4 hours. Find the bot to have your chance to win big pize.";
@@ -207,12 +324,16 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             int index = -1;
             for(unsigned int i = 0; i < entries.size(); ++i)
             {
+                printf("'%s'\n", entries[i].value.c_str());
                 std::vector<std::string> args = Args(entries[i].value);
-                int amount = std::atoi(args[1].c_str());
-                if(amount > highest)
+                if(args.size() == 2)
                 {
-                    highest = amount;
-                    index = i;
+                    int amount = std::atoi(args[1].c_str());
+                    if(amount > highest)
+                    {
+                        highest = amount;
+                        index = i;
+                    }
                 }
             }
 
@@ -231,30 +352,47 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             }
         }
 
-        s.eprocessor.DelayedMessage(winners, 1000);
+        ret.push_back(winners);
     }
-    else if(command == "getitem" && args.size() >= 2 && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    else if(command == "getitem" && args.size() >= 2 && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.lottery.run)
     {
-        std::string name = "";
+        std::string item_name = "";
         for(unsigned int i = 1; i < args.size(); ++i)
         {
-            std::transform(args[i].begin(), args[i].end(), args[i].begin(), ::tolower);
-            args[i][0] = std::toupper(args[i][0]);
-            name += args[i];
+            std::string word = args[i];
+
+            std::transform(word.begin(), word.end(), word.begin(), ::tolower);
+            word[0] = std::toupper(args[i][0]);
+            item_name += word;
             if(i != args.size() - 1)
             {
-                name += " ";
+                item_name += " ";
             }
         }
 
-        int item_id = s.eif->GetByName(name).id;
-        bool found = s.inventory.FindItem(item_id, 1);
+        int item_id = s.eif->GetByName(item_name).id;
+        bool found = s.inventory.FindItem(item_id, s.eprocessor.item_request.amount);
+        bool locked = false;
 
-        if(name == "Gold") found = false;
+        if(item_name == "Gold" || item_id == 1)
+        {
+            locked = true;
+        }
 
-        if(found)
+        if(!found)
+        {
+            item_id++;
+            std::string found_name = s.eif->Get(item_id).name;
+            if(found_name == item_name)
+            {
+                found = s.inventory.FindItem(item_id, s.eprocessor.item_request.amount);
+            }
+        }
+
+        if(found && !locked)
         {
             s.eprocessor.item_request.id = item_id;
+            s.eprocessor.item_request.amount = 1;
             s.eprocessor.item_request.gameworld_id = gameworld_id;
             s.eprocessor.item_request.give = false;
             s.eprocessor.item_request.run = true;
@@ -267,10 +405,25 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         }
 
         std::string message = "Item ";
-        message += found? "found. Please trade me to receive it (available for 15 seconds)." : "is not found in my inventory.";
+        if(found && !locked)
+        {
+            message += "found. Please trade me to receive it (available for 12 seconds).";
+        }
+        else
+        {
+            if(locked && name != s.config.GetValue("Master"))
+            {
+                message += item_name + " is locked from giving away. It's used for EORoulette.";
+            }
+            else if(!locked)
+            {
+                message += "is not found in my inventory.";
+            }
+        }
+
         s.eprocessor.DelayedMessage(message, 1000);
     }
-    else if(command == "giveitem" && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    else if(command == "giveitem" && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.lottery.run)
     {
         s.eprocessor.item_request.gameworld_id = gameworld_id;
         s.eprocessor.item_request.give = true;
@@ -282,9 +435,54 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         packet.AddShort(gameworld_id);
         s.eoclient.Send(packet);
 
-        std::string message = "Please trade me the items you want to give (available 15 seconds).";
+        std::string message = "Please trade me the items you want to give (available 12 seconds).";
         s.eprocessor.DelayedMessage(message, 1000);
     }
+    /*else if(command == "lottery" && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.lottery.run)
+    {
+        s.eprocessor.lottery.Run(gameworld_id);
+
+        std::string name_upper = name;
+        name_upper[0] = std::toupper(name[0]);
+
+        s.eoclient.TalkPublic("Welcome to Lottery! Please #pick (numer) (number) (number) and trade me gold. You've got 12 seconds.");
+    }
+    else if(command == "pick" && args.size() >= 4 && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && s.eprocessor.lottery.run)
+    {
+        bool found = false;
+        for(unsigned int i = 0; i < s.eprocessor.lottery.picks.size(); ++i)
+        {
+            if(s.eprocessor.lottery.picks[i].first == gameworld_id)
+            {
+                found = true;
+            }
+        }
+
+        std::string message = "";
+        if(!found)
+        {
+            int picks[3] = { 0, 0, 0 };
+            for(int i = 0; i < 3; ++i)
+            {
+                picks[i] = std::atoi(args[i + 1].c_str());
+            }
+
+            s.eprocessor.lottery.picks.push_back(std::make_pair(gameworld_id, picks));
+
+            PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
+            packet.AddChar(138);
+            packet.AddShort(gameworld_id);
+            s.eoclient.Send(packet);
+
+            message = "Your picks have been registered. Please trade me 50 gold for each pick (150 gold).";
+        }
+        else
+        {
+            message = "You have been already registered. Please wait for the game to begin";
+        }
+
+        ret.push_back(message);
+    }*/
 
     return ret;
 }
@@ -308,9 +506,20 @@ void Talk_Player(PacketReader reader)
         message.erase(0, 1);
 
         std::vector<std::string> ret = ProcessCommand(name, message, gameworld_id);
+        std::vector<std::string> args = Args(message);
+
         for(unsigned int i = 0; i < ret.size(); ++i)
         {
-            s.eprocessor.DelayedMessage(ret[i], 1000);
+            EventProcessor::DelayMessage delay_message(ret[i], 1000);
+            if(ret[0].length() > 33)
+            {
+                delay_message.channel = 1;
+                std::string name_lower = name;
+                name_lower[0] = std::tolower(name[0]);
+                delay_message.victim_name = name_lower;
+            }
+
+            s.eprocessor.DelayedMessage(delay_message);
         }
     }
     else
@@ -333,10 +542,15 @@ void Talk_Tell(PacketReader reader)
     {
         message.erase(0, 1);
 
-        std::vector<std::string> ret = ProcessCommand(name, message, -1);
+        int index = s.map.GetCharacterIndex(name);
+
+        std::vector<std::string> ret = ProcessCommand(name, message, s.map.characters[index].gameworld_id);
         for(unsigned int i = 0; i < ret.size(); ++i)
         {
-            s.eoclient.TalkTell(name, ret[i]);
+            EventProcessor::DelayMessage delay_message(ret[i], 1000);
+            delay_message.channel = 1;
+            delay_message.victim_name = name;
+            s.eprocessor.DelayedMessage(delay_message);
         }
     }
 }

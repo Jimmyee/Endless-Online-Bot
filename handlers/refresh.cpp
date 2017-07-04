@@ -9,8 +9,7 @@ void Refresh_Reply(PacketReader reader)
     reader.GetByte(); // 255
 
 
-    s.map.characters.clear();
-    s.map.npcs.clear();
+    std::vector<Character> update_characters;
     for(int i = 0; i < player_amount; ++i)
     {
         Character *character;
@@ -52,9 +51,21 @@ void Refresh_Reply(PacketReader reader)
         character->visibility = reader.GetChar();
         reader.GetByte(); // 255
 
-        s.map.characters.push_back(*character);
+        update_characters.push_back(*character);
     }
 
+    for(unsigned int i = 0; i < update_characters.size(); ++i)
+    {
+        int index = s.map.GetCharacterIndex(update_characters[i].gameworld_id);
+        if(index != -1)
+        {
+            update_characters[i].eo_roulette = s.map.characters[index].eo_roulette;
+        }
+    }
+
+    s.map.characters = update_characters;
+
+    s.map.npcs.clear();
     while(reader.PeekByte() != 255)
     {
         NPC npc;

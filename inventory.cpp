@@ -47,6 +47,19 @@ bool Inventory::FindItem(short id, int amount)
     return false;
 }
 
+int Inventory::GetItemAmount(short id)
+{
+    for(unsigned int i = 0; i < this->items.size(); ++i)
+    {
+        if(this->items[i].first == id)
+        {
+            return this->items[i].second;
+        }
+    }
+
+    return 0;
+}
+
 void Inventory::Clear()
 {
     this->items.clear();

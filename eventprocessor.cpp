@@ -14,7 +14,7 @@ ChatBot::ChatBot()
 
 void ChatBot::Load()
 {
-    std::ifstream file("./chatbot.txt", std::ios::in | std::ios::ate);
+    std::ifstream file("./chatbot.txt", std::ios::in);
     if(!file.is_open())
     {
         printf("Chat bot: Could not load file");
@@ -36,7 +36,7 @@ void ChatBot::Load()
         pos = filedata_str.find_first_of('\n');
         if(pos == std::string::npos) continue;
 
-        std::string message = filedata_str.substr(0, pos - 1);
+        std::string message = filedata_str.substr(0, pos);
 
         this->database.push_back(message);
         std::string newdata = filedata_str.substr(pos + 1);
@@ -179,6 +179,11 @@ void EORoulette::Run(short gameworld_id)
 
     S &s = S::GetInstance();
 
+    for(unsigned int i = 0; i < s.map.characters.size(); ++i)
+    {
+        s.map.characters[i].eo_roulette = false;
+    }
+
     PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
     packet.AddChar(138);
     packet.AddShort(this->gameworld_id);
@@ -235,13 +240,25 @@ void EORoulette::Process()
                 int winner_x = s.character.x + xoff;
                 int winner_y = s.character.y + yoff;
 
+                bool non_players = false;
+
                 std::vector<Character> winners;
                 for(unsigned int i = 0; i < s.map.characters.size(); ++i)
                 {
                     if(s.map.characters[i].x == winner_x && s.map.characters[i].y == winner_y)
                     {
-                        if(s.map.characters[i].gameworld_id != s.character.gameworld_id)
-                        winners.push_back(s.map.characters[i]);
+                        if(s.map.characters[i].gameworld_id != s.character.gameworld_id && s.map.characters[i].eo_roulette && !this->jackpot)
+                        {
+                            winners.push_back(s.map.characters[i]);
+                        }
+                        else if(s.map.characters[i].gameworld_id != s.character.gameworld_id && !s.map.characters[i].eo_roulette && !this->jackpot)
+                        {
+                            non_players = true;
+                        }
+                        else if(s.map.characters[i].gameworld_id != s.character.gameworld_id && this->jackpot)
+                        {
+                            winners.push_back(s.map.characters[i]);
+                        }
                     }
                 }
 
@@ -290,6 +307,10 @@ void EORoulette::Process()
                 else
                 {
                     s.eoclient.TalkPublic("Sorry, no one won.");
+                    if(non_players)
+                    {
+                        s.eprocessor.DelayedMessage("Reminder: players that didn't give any gold don't play the game.", 5000);
+                    }
                     this->run = false;
                     int thirdpart = this->gold_given / 3;
                     this->total_gold += this->jackpot? 0 : thirdpart * 2;
@@ -299,7 +320,7 @@ void EORoulette::Process()
         }
         else
         {
-            int time_delay = (s.eprocessor.trade.get() || this->winner != -1)? 15 : 7;
+            int time_delay = (s.eprocessor.trade.get() || this->winner != -1)? 15 : 12;
             if(this->clock.getElapsedTime().asSeconds() >= time_delay)
             {
                 if(this->winner == -1)
@@ -390,6 +411,268 @@ void EORoulette::Process()
     }
 }
 
+Lottery::Lottery()
+{
+    this->run = false;
+    this->gameworld_id = -1;
+    this->clock.restart();
+    this->jackpot_clock.restart();
+    this->reminder_clock.restart();
+    this->reminder_global.restart();
+    this->gold_given = 0;
+    this->play = false;
+    this->total_gold = 0;
+    this->jackpot = false;
+    this->jp_time = 14400;
+    this->jpconfig.Load("./jackpots_lottery.txt");
+}
+
+void Lottery::Run(short gameworld_id)
+{
+    this->gameworld_id = gameworld_id;
+    this->gold_given = 0;
+    this->play = false;
+    this->picks.clear();
+    this->paid.clear();
+    this->winners.clear();
+    this->clock.restart();
+    this->run = true;
+    this->jackpot = false;
+}
+
+void Lottery::Process()
+{
+    S &s = S::GetInstance();
+
+    if(this->run)
+    {
+        if(this->play)
+        {
+            int winning_numbers[3] = { 0, 0, 0 };
+
+            for(int i = 0; i < 3; ++i)
+            {
+                winning_numbers[i] = s.rand_gen.RandInt(0, 0);
+            }
+
+            printf("picks %i\n", this->picks.size());
+
+            std::vector<std::pair<short, int>> winner_candidates;
+            for(unsigned int i = 0; i < this->picks.size(); ++i)
+            {
+                int picks_won = 0;
+                for(int pc = 0; pc < 3; ++pc)
+                {
+                    if(this->picks[i].second[pc] == winning_numbers[pc])
+                    {
+                        picks_won++;
+                    }
+                }
+                if(picks_won > 0)
+                {
+                    puts("win candidate added");
+                    winner_candidates.push_back(std::make_pair(this->picks[i].first, picks_won));
+                }
+            }
+
+            if(winner_candidates.size() > 0)
+            {
+                for(int i = 0; i < 2; ++i)
+                {
+                    int best_pick = 0;
+                    int winner_candidate = -1;
+                    for(unsigned int ii = 0; ii < winner_candidates.size(); ++ii)
+                    {
+                        if(winner_candidates[ii].second > best_pick)
+                        {
+                            puts("win candidate added 2");
+                            best_pick = winner_candidates[ii].second;
+                            winner_candidate = ii;
+                        }
+                    }
+
+                    if(winner_candidate != -1)
+                    {
+                        this->winners.push_back(std::make_pair(winner_candidates[winner_candidate].first, best_pick));
+                        winner_candidates.erase(winner_candidates.begin() + winner_candidate);
+                    }
+                }
+            }
+
+            if(this->winners.size() > 0)
+            {
+                int black_hole = s.rand_gen.RandInt(0, 10);
+                if(black_hole == 0)
+                {
+                    this->run = false;
+                    int thirdpart = this->gold_given / 3;
+                    this->total_gold += this->jackpot? 0 : thirdpart * 2;
+                    this->jackpot = false;
+
+                    std::string message = "Sorry, the gold has been swallowed by jackpot monster :s";
+                    s.eprocessor.DelayedMessage(message, 1000);
+                    return;
+                }
+
+                if(this->jackpot)
+                {
+                    Character winner = s.map.characters[s.map.GetCharacterIndex(this->winners[0].first)];
+                    Config::Entry entry("", "");
+                    entry.key = std::to_string(this->jpconfig.entries.size());
+                    entry.value = winner.name + " " + std::to_string(this->gold_given);
+                    this->jpconfig.entries.push_back(entry);
+                    this->jpconfig.Save("./jackpots_lottery.txt");
+                }
+
+                std::string winner_names = "";
+                for(unsigned int i = 0; i < this->winners.size(); ++i)
+                {
+                    Character winner = s.map.characters[s.map.GetCharacterIndex(this->winners[i].first)];
+                    std::string name_upper = winner.name;
+                    name_upper[0] = std::toupper(winner.name[0]);
+
+                    winner_names += name_upper;
+                    if(i < this->winners.size() - 1) winner_names += ", ";
+                }
+
+                std::string message = "Congratulations " + winner_names;
+                message += ". you won " + std::to_string(this->gold_given) + " gold!";
+                s.eprocessor.DelayedMessage(message, 1000);
+                message = "Please trade me to receive your award. (Available 15 seconds)";
+                s.eprocessor.DelayedMessage(message, 5000);
+
+                this->play = false;
+            }
+            else
+            {
+                s.eoclient.TalkPublic("Sorry, no one won.");
+                this->run = false;
+                int thirdpart = this->gold_given / 3;
+                this->total_gold += this->jackpot? 0 : thirdpart * 2;
+                this->jackpot = false;
+            }
+        }
+        else
+        {
+            if(!this->winners.empty() && !s.eprocessor.trade.get() && !s.eprocessor.item_request.run)
+            {
+                if(s.eprocessor.item_request.gameworld_id != this->winners[0].first)
+                {
+                    s.eprocessor.item_request.id = 1;
+                    s.eprocessor.item_request.amount = this->gold_given / this->winners.size();
+                    s.eprocessor.item_request.gameworld_id = this->winners[0].first;
+                    s.eprocessor.item_request.give = false;
+                    s.eprocessor.item_request.run = true;
+                    s.eprocessor.item_request.clock.restart();
+
+                    PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
+                    packet.AddChar(138);
+                    packet.AddShort(this->winners[0].first);
+                    s.eoclient.Send(packet);
+                    puts("trade request sent");
+                }
+                else
+                {
+                    this->winners.erase(this->winners.begin());
+
+                    if(this->winners.empty())
+                    {
+                        this->run = false;
+                        int thirdpart = this->gold_given / 3;
+                        this->total_gold += this->jackpot? 0 : thirdpart;
+                        this->jackpot = false;
+                        s.eoclient.TalkPublic("The game has been finished.");
+                    }
+                }
+            }
+
+            int time_delay = (s.eprocessor.trade.get() || !this->winners.empty())? 15 : 12;
+            if(this->clock.getElapsedTime().asSeconds() >= time_delay)
+            {
+                if(this->winners.empty())
+                {
+                    if(this->gold_given > 0)
+                    {
+                        this->play = true;
+                        this->clock.restart();
+                        s.eoclient.TalkPublic("Start!");
+                    }
+                    else
+                    {
+                        this->run = false;
+                        if(s.eprocessor.trade.get())
+                        {
+                            PacketBuilder packet(PacketFamily::Trade, PacketAction::Close);
+                            packet.AddChar(138);
+                            s.eoclient.Send(packet);
+                            s.eprocessor.trade.reset();
+                        }
+                        s.eoclient.TalkPublic("The game has been canceled: no gold in the bank.");
+                    }
+                }
+                else
+                {
+                    this->run = false;
+                    int thirdpart = this->gold_given / 3;
+                    this->total_gold += this->jackpot? 0 : thirdpart;
+                    this->jackpot = false;
+                    s.eoclient.TalkPublic("The game has been finished.");
+                }
+            }
+        }
+    }
+    else
+    {
+        int jackpot_time = this->jp_time;
+        int elapsed = this->jackpot_clock.getElapsedTime().asSeconds();
+        if(elapsed >= jackpot_time)
+        {
+            this->gameworld_id = -1;
+            this->gold_given = this->total_gold;
+            this->play = true;
+            this->winners.clear();
+            this->clock.restart();
+            this->run = true;
+            this->jackpot = true;
+
+            this->jackpot_clock.restart();
+
+            s.eoclient.TalkPublic("Jackpot game started!");
+        }
+        else if(elapsed >= jackpot_time - 180 && elapsed < jackpot_time - 10)
+        {
+            if(this->reminder_clock.getElapsedTime().asSeconds() >= 30)
+            {
+                std::string message = "Attention! EORoulette Jackpot game starts in ";
+                message += std::to_string(jackpot_time - elapsed);
+                message += " seconds!";
+
+                s.eoclient.TalkPublic(message);
+                this->reminder_clock.restart();
+            }
+            if(this->reminder_global.getElapsedTime().asSeconds() >= 120)
+            {
+                std::string message = "Attention! EORoulette Jackpot game starts in ";
+                message += std::to_string(jackpot_time - elapsed);
+                message += " seconds! You can get my location by sending me #wru through PM.";
+
+                s.eoclient.TalkGlobal(message);
+                this->reminder_global.restart();
+            }
+        }
+        else if(elapsed >= jackpot_time - 10 && elapsed < jackpot_time)
+        {
+            if(this->reminder_clock.getElapsedTime().asSeconds() >= 1)
+            {
+                std::string message = std::to_string(jackpot_time - elapsed);
+
+                s.eoclient.TalkPublic(message);
+                this->reminder_clock.restart();
+            }
+        }
+    }
+}
+
 ChaseBot::ChaseBot()
 {
     this->Reset();
@@ -440,7 +723,7 @@ bool Walkable(unsigned char x, unsigned char y)
         warp_near = true;
     }
 
-    if(s.emf->Walkable(x, y)/* && !s.map.Occupied(x, y)*/ && !warp_near)
+    if(s.emf->Walkable(x, y) && !s.map.Occupied(x, y) && !warp_near)
     {
         return true;
     }
@@ -565,8 +848,8 @@ void ChaseBot::Act()
 
     if(this->victim_gameworld_id == -1 && !this->go_center)
 	{
-	    short farthest = -1;
-		unsigned char farthest_distance = 1;
+	    short closest = -1;
+		unsigned char closest_distance = 1;
 
 		for(unsigned int i = 0; i < s.map.characters.size(); ++i)
 		{
@@ -575,16 +858,16 @@ void ChaseBot::Act()
 			if (distance == 0)
 				distance = 1;
 
-			if (distance > farthest_distance && s.map.characters[i].gameworld_id != s.character.gameworld_id)
+			if (distance < closest_distance && s.map.characters[i].gameworld_id != s.character.gameworld_id)
 			{
-				farthest = s.map.characters[i].gameworld_id;
-				farthest_distance = distance;
+				closest = s.map.characters[i].gameworld_id;
+				closest_distance = distance;
 			}
 		}
 
-		if(farthest != -1)
+		if(closest != -1)
 		{
-		    this->victim_gameworld_id = farthest;
+		    this->victim_gameworld_id = closest;
             this->follow_clock.restart();
 		}
 	}
@@ -601,8 +884,9 @@ void ChaseBot::Act()
             }
 
             int distance = path_length(s.map.characters[victim].x, s.map.characters[victim].y, s.character.x, s.character.y);
+            int char_distance_center = path_length(this->center_x, this->center_y, s.map.characters[victim].x, s.map.characters[victim].y);
 
-            if(distance > 2)
+            if(distance > 2 && char_distance_center < 6)
             {
                 this->WalkTo(s.map.characters[victim].x, s.map.characters[victim].y);
             }
@@ -615,7 +899,7 @@ void ChaseBot::Act()
     }
     else
     {
-        if(distance_center > 3 && !this->go_center)
+        if(distance_center >= 6 && !this->go_center)
         {
             this->go_center = true;
         }
@@ -623,9 +907,7 @@ void ChaseBot::Act()
 
     if(this->go_center)
     {
-        distance_center = path_length(this->center_x, this->center_y, s.character.x, s.character.y);
-
-        if(distance_center > 3)
+        if(distance_center >= 6)
         {
             this->WalkTo(this->center_x, this->center_y);
         }
@@ -655,10 +937,12 @@ void EventProcessor::Process()
     }
 
     this->eo_roulette.Process();
+    this->lottery.Process();
 
     if(this->item_request.run)
     {
-        if(this->item_request.clock.getElapsedTime().asSeconds() >= 15)
+        int time_delay = (s.eprocessor.trade.get())? 30 : 12;
+        if(this->item_request.clock.getElapsedTime().asSeconds() >= time_delay)
         {
             this->item_request.run = false;
 
@@ -675,10 +959,10 @@ void EventProcessor::Process()
         }
     }
 
-    if(!this->eo_roulette.run)
+    /*if(!this->eo_roulette.run)
     {
-        //this->chase_bot.Process();
-    }
+        this->chase_bot.Process();
+    }*/
 
     this->chat_bot.Process();
 
@@ -692,7 +976,29 @@ void EventProcessor::Process()
     {
         if(this->d_messages[0].clock.getElapsedTime().asMilliseconds() >= this->d_messages[0].time_ms)
         {
-            s.eoclient.TalkPublic(this->d_messages[0].message);
+            std::vector<std::string> buffer;
+            std::string message = this->d_messages[0].message;
+            while(message.length() > 128)
+            {
+                buffer.push_back(message.substr(0, 128));
+                message.erase(0, 128);
+            }
+            if(message.length() > 0)
+            {
+                buffer.push_back(message);
+            }
+
+            for(unsigned int i = 0; i < buffer.size(); ++i)
+            {
+                if(this->d_messages[0].channel == 0)
+                {
+                    s.eoclient.TalkPublic(buffer[i]);
+                }
+                if(this->d_messages[0].channel == 1)
+                {
+                    s.eoclient.TalkTell(this->d_messages[0].victim_name, buffer[i]);
+                }
+            }
             this->d_messages.erase(this->d_messages.begin());
             if(this->d_messages.size() > 0)
             {
@@ -717,4 +1023,9 @@ void EventProcessor::DelayedMessage(std::string message, int time_ms)
     }
 
     this->d_messages.push_back(DelayMessage(message, message_delay));
+}
+
+void EventProcessor::DelayedMessage(DelayMessage delay_message)
+{
+    this->d_messages.push_back(delay_message);
 }

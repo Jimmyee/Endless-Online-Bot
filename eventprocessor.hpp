@@ -3,6 +3,7 @@
 
 #include "config.hpp"
 #include "const/character.hpp"
+#include "character.hpp"
 
 #include <SFML/System.hpp>
 #include <vector>
@@ -47,6 +48,29 @@ struct EORoulette
     void Process();
 };
 
+struct Lottery
+{
+    bool run;
+    short gameworld_id;
+    sf::Clock clock;
+    sf::Clock jackpot_clock;
+    sf::Clock reminder_clock;
+    sf::Clock reminder_global;
+    int gold_given;
+    std::vector<std::pair<short, int*>> picks;
+    std::vector<short> paid;
+    bool play;
+    std::vector<std::pair<short, int>> winners;
+    int total_gold;
+    bool jackpot;
+    int jp_time;
+    Config jpconfig;
+
+    Lottery();
+    void Run(short gameworld_id);
+    void Process();
+};
+
 struct ChaseBot
 {
     short victim_gameworld_id;
@@ -68,11 +92,12 @@ struct ItemRequest
 {
     bool run;
     short id;
+    int amount;
     short gameworld_id;
     bool give;
     sf::Clock clock;
 
-    ItemRequest() { run = false; id = 0; gameworld_id = 0; give = true; this->clock.restart(); }
+    ItemRequest() { this->run = false; id = 0; this->amount = 1; this->gameworld_id = 0; this->give = true; this->clock.restart(); }
 };
 
 struct EventProcessor
@@ -93,8 +118,10 @@ struct EventProcessor
         std::string message;
         sf::Clock clock;
         int time_ms;
+        int channel;
+        std::string victim_name;
 
-        DelayMessage(std::string message, int time_ms) { this->message = message; this->time_ms = time_ms; this->clock.restart(); }
+        DelayMessage(std::string message, int time_ms) { this->message = message; this->time_ms = time_ms; this->clock.restart(); this->channel = 0; }
     };
 
     std::shared_ptr<Trade> trade;
@@ -107,11 +134,13 @@ struct EventProcessor
     sf::Clock uptime_clock;
     sf::Clock refresh_clock;
     ItemRequest item_request;
+    Lottery lottery;
 
     EventProcessor();
 
     void Process();
     void DelayedMessage(std::string message, int time_ms = 0);
+    void DelayedMessage(DelayMessage delay_message);
 };
 
 #endif // EVENTPROCESSOR_HPP_INCLUDED

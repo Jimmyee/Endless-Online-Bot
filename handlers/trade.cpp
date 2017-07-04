@@ -9,7 +9,9 @@ void Trade_Request(PacketReader reader)
     short gameworld_id = reader.GetShort();
     std::string name = reader.GetEndString();
 
-    if(!s.eprocessor.trade.get() && s.eprocessor.eo_roulette.run)
+    if(s.eprocessor.trade.get()) return;
+
+    if(s.eprocessor.eo_roulette.run)
     {
         if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.payments < 10)
         {
@@ -46,6 +48,36 @@ void Trade_Request(PacketReader reader)
             s.eoclient.Send(packet);
         }
     }
+    else if(s.eprocessor.lottery.run && !s.eprocessor.lottery.play)
+    {
+        bool found = false;
+        if(s.eprocessor.lottery.winners.empty())
+        {
+            for(unsigned int i = 0; i < s.eprocessor.lottery.picks.size(); ++i)
+            {
+                if(s.eprocessor.lottery.picks[i].first == gameworld_id)
+                {
+                    found = true;
+
+                    for(unsigned int ii = 0; ii < s.eprocessor.lottery.paid.size(); ++ii)
+                    {
+                        if(s.eprocessor.lottery.paid[ii] == s.eprocessor.lottery.picks[i].first)
+                        {
+                            found = false;
+                        }
+                    }
+                }
+            }
+        }
+
+        if(found)
+        {
+            PacketBuilder packet(PacketFamily::Trade, PacketAction::Accept);
+            packet.AddChar(138);
+            packet.AddShort(gameworld_id);
+            s.eoclient.Send(packet);
+        }
+    }
 }
 
 void Trade_Open(PacketReader reader)
@@ -59,7 +91,7 @@ void Trade_Open(PacketReader reader)
 
     s.eprocessor.trade = std::shared_ptr<EventProcessor::Trade>(new EventProcessor::Trade(gameworld_id));
 
-    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.lottery.run)
     {
         s.eprocessor.trade.reset();
 
@@ -103,6 +135,18 @@ void Trade_Open(PacketReader reader)
         {
             PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
             packet.AddShort(s.eprocessor.item_request.id);
+            packet.AddInt(s.eprocessor.item_request.amount);
+            s.eoclient.Send(packet);
+        }
+    }
+    else if(s.eprocessor.lottery.run)
+    {
+        s.eprocessor.lottery.clock.restart();
+
+        if(s.eprocessor.lottery.winners.empty())
+        {
+            PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
+            packet.AddShort(1);
             packet.AddInt(1);
             s.eoclient.Send(packet);
         }
@@ -113,9 +157,15 @@ void Trade_Open(PacketReader reader)
 
 void Trade_Close(PacketReader reader) // other player closed trade
 {
+    S &s = S::GetInstance();
     short gameworld_id = reader.GetShort();
 
-    S::GetInstance().eprocessor.trade.reset();
+    s.eprocessor.trade.reset();
+
+    if(s.eprocessor.eo_roulette.run && !s.eprocessor.eo_roulette.play)
+    {
+        s.eprocessor.eo_roulette.payments++;
+    }
 }
 
 void Trade_Reply(PacketReader reader) // update of trade items
@@ -153,7 +203,7 @@ void Trade_Reply(PacketReader reader) // update of trade items
     }
     reader.GetByte(); // 255
 
-    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.lottery.run)
     {
         s.eprocessor.trade.reset();
 
@@ -163,7 +213,7 @@ void Trade_Reply(PacketReader reader) // update of trade items
         return;
     }
 
-    if(s.eprocessor.eo_roulette.run)
+    if(s.eprocessor.eo_roulette.run || s.eprocessor.lottery.run)
     {
         bool player_put_item = true;
         bool victim_put_item = false;
@@ -185,6 +235,20 @@ void Trade_Reply(PacketReader reader) // update of trade items
                     victim_put_item = true;
                 }
             }
+            else if(s.eprocessor.lottery.run)
+            {
+                if(s.eprocessor.lottery.winners.empty())
+                {
+                    if(id == 1 && amount >= 2)
+                    {
+                        victim_put_item = true;
+                    }
+                }
+                else
+                {
+                    victim_put_item = true;
+                }
+            }
         }
 
         for(unsigned int i = 0; i < s.eprocessor.trade->player_items.size(); ++i)
@@ -192,7 +256,7 @@ void Trade_Reply(PacketReader reader) // update of trade items
             short id = std::get<0>(s.eprocessor.trade->player_items[i]);
             int amount = std::get<1>(s.eprocessor.trade->player_items[i]);
 
-            if(s.eprocessor.eo_roulette.run)
+            if(s.eprocessor.eo_roulette.run || s.eprocessor.lottery.run)
             {
                 if(id == 1)
                 {
@@ -286,6 +350,10 @@ void Trade_Use(PacketReader reader) // trade finished
             s.eprocessor.eo_roulette.gold_given += amount;
             s.eprocessor.eo_roulette.payments++;
         }
+        else if(id == 1 && s.eprocessor.lottery.run)
+        {
+            s.eprocessor.lottery.gold_given += amount;
+        }
     }
 
     for(unsigned int i = 0; i < s.eprocessor.trade->player_items.size(); ++i)
@@ -296,6 +364,8 @@ void Trade_Use(PacketReader reader) // trade finished
         s.inventory.DelItem(id, amount);
     }
 
+    short victim_gameworld_id = s.eprocessor.trade->victim_gameworld_id;
+
     s.eprocessor.trade.reset();
 
     if(s.eprocessor.eo_roulette.run)
@@ -305,8 +375,11 @@ void Trade_Use(PacketReader reader) // trade finished
         {
             s.eprocessor.eo_roulette.clock.restart();
 
+            int i = s.map.GetCharacterIndex(victim_gameworld_id);
+            s.map.characters[i].eo_roulette = true;
+
             message = std::string() + std::to_string(s.eprocessor.eo_roulette.gold_given);
-            message += " gold in the bank. You can still add more gold. Starting in 7 seconds...";
+            message += " gold in the bank. You can still add more gold. Starting in 12 seconds...";
         }
         else
         {
@@ -325,5 +398,30 @@ void Trade_Use(PacketReader reader) // trade finished
     else if(s.eprocessor.item_request.run)
     {
         s.eprocessor.item_request.run = false;
+
+        if(s.eprocessor.item_request.give)
+        {
+            std::string message = "Thank you ";
+            int i = s.map.GetCharacterIndex(victim_gameworld_id);
+
+            std::string name = s.map.characters[i].name;
+            name[0] = std::toupper(s.map.characters[i].name[0]);
+            if(i != -1) message += name + ".";
+            message += " Now someone can take particular items if he/she needs to.";
+            s.eprocessor.DelayedMessage(message, 1000);
+        }
+    }
+    else if(s.eprocessor.lottery.run)
+    {
+        if(s.eprocessor.lottery.winners.empty())
+        {
+            s.eprocessor.lottery.clock.restart();
+            s.eprocessor.lottery.paid.push_back(victim_gameworld_id);
+
+            std::string message = "";
+            message = std::string() + std::to_string(s.eprocessor.lottery.gold_given);
+            message += " gold in the bank. You can still add more gold. Starting in 12 seconds...";
+            s.eprocessor.DelayedMessage(message, 1000);
+        }
     }
 }
