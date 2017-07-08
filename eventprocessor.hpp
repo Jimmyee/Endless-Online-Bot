@@ -48,29 +48,6 @@ struct EORoulette
     void Process();
 };
 
-struct Lottery
-{
-    bool run;
-    short gameworld_id;
-    sf::Clock clock;
-    sf::Clock jackpot_clock;
-    sf::Clock reminder_clock;
-    sf::Clock reminder_global;
-    int gold_given;
-    std::vector<std::pair<short, int*>> picks;
-    std::vector<short> paid;
-    bool play;
-    std::vector<std::pair<short, int>> winners;
-    int total_gold;
-    bool jackpot;
-    int jp_time;
-    Config jpconfig;
-
-    Lottery();
-    void Run(short gameworld_id);
-    void Process();
-};
-
 struct ChaseBot
 {
     short victim_gameworld_id;
@@ -134,7 +111,6 @@ struct EventProcessor
     sf::Clock uptime_clock;
     sf::Clock refresh_clock;
     ItemRequest item_request;
-    Lottery lottery;
 
     EventProcessor();
 

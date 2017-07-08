@@ -67,8 +67,6 @@ public:
     SitState sitting;
     unsigned char visibility;
 
-    bool eo_roulette;
-
     Character();
 };
 

@@ -43,6 +43,4 @@ Character::Character()
 
     this->sitting = static_cast<SitState>(0);
     this->visibility = 0;
-
-    this->eo_roulette = 0;
 }

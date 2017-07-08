@@ -16,6 +16,7 @@ void Walk_Player(PacketReader reader);
 
 void Talk_Player(PacketReader reader); // public message
 void Talk_Tell(PacketReader reader); // private message
+void Talk_Message(PacketReader reader); // global message
 
 void Sit_Player(PacketReader reader);
 void Sit_Close(PacketReader reader);

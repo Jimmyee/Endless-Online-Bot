@@ -209,8 +209,11 @@ void Welcome_Reply(PacketReader reader)
         s.eoclient.RegisterHandler(PacketFamily::Players, PacketAction::Agree, Players_Agree);
         s.eoclient.RegisterHandler(PacketFamily::Avatar, PacketAction::Remove, Avatar_Remove);
         s.eoclient.RegisterHandler(PacketFamily::Walk, PacketAction::Player, Walk_Player);
+
         s.eoclient.RegisterHandler(PacketFamily::Talk, PacketAction::Player, Talk_Player);
         s.eoclient.RegisterHandler(PacketFamily::Talk, PacketAction::Tell, Talk_Tell);
+        s.eoclient.RegisterHandler(PacketFamily::Talk, PacketAction::Message, Talk_Message);
+
         s.eoclient.RegisterHandler(PacketFamily::Sit, PacketAction::Player, Sit_Player);
         s.eoclient.RegisterHandler(PacketFamily::Sit, PacketAction::Close, Sit_Close);
 

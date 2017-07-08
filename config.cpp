@@ -17,7 +17,7 @@ Config::Config(std::string filename)
 
 bool Config::Load(std::string filename)
 {
-    std::ifstream file(filename, std::ios::in | std::ios::ate);
+    std::ifstream file(filename, std::ios::in);
     if(!file.is_open())
     {
         printf("Config: Could not load file");
@@ -25,6 +25,7 @@ bool Config::Load(std::string filename)
     }
 
     std::streampos filesize;
+    file.seekg(0, std::ios::end);
     filesize = file.tellg();
     char *filedata = new char[filesize];
     file.seekg(0, std::ios::beg);

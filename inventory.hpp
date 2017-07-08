@@ -5,10 +5,9 @@
 
 class Inventory
 {
-private:
+public:
     std::vector<std::pair<short, int>> items;
 
-public:
     void AddItem(short id, int amount);
     void DelItem(short id, int amount);
     bool FindItem(short id, int amount);
