@@ -90,6 +90,11 @@ public:
     void TalkTell(std::string name, std::string message);
     void Face(Direction direction);
     void RefreshRequest();
+    void TradeRequest(short gameworld_id);
+    void TradeAccept(short gameworld_id);
+    void TradeAdd(short item_id, int item_amount);
+    void TradeAgree();
+    void TradeClose();
 };
 
 #endif // EOCLIENT_HPP_INCLUDED

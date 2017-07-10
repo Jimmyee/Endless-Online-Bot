@@ -414,3 +414,42 @@ void EOClient::RefreshRequest()
     PacketBuilder packet(PacketFamily::Refresh, PacketAction::Request);
     this->Send(packet);
 }
+
+void EOClient::TradeRequest(short gameworld_id)
+{
+    PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
+    packet.AddChar(138);
+    packet.AddShort(gameworld_id);
+    this->Send(packet);
+}
+
+void EOClient::TradeAccept(short gameworld_id)
+{
+    PacketBuilder packet(PacketFamily::Trade, PacketAction::Accept);
+    packet.AddChar(138);
+    packet.AddShort(gameworld_id);
+    this->Send(packet);
+}
+
+void EOClient::TradeAdd(short item_id, int item_amount)
+{
+    PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
+    packet.AddShort(item_id);
+    packet.AddInt(item_amount);
+    this->Send(packet);
+}
+
+void EOClient::TradeAgree()
+{
+    PacketBuilder packet(PacketFamily::Trade, PacketAction::Agree);
+    packet.AddChar(true);
+    this->Send(packet);
+}
+
+void EOClient::TradeClose()
+{
+    PacketBuilder packet(PacketFamily::Trade, PacketAction::Close);
+    packet.AddChar(138);
+    this->Send(packet);
+    S::GetInstance().eprocessor.trade.reset();
+}

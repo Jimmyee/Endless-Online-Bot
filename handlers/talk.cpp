@@ -110,7 +110,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             message += std::to_string(hours) + "h " + std::to_string(minutes) + "m " + std::to_string(seconds) + "s.";
             ret.push_back(message);
         }
-        else if(command == "finditem" && args.size() >= 2)
+        else if(command == "peekitem" && args.size() >= 2)
         {
             std::string item_name = "";
             for(unsigned int i = 1; i < args.size(); ++i)
@@ -134,7 +134,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             message += " amount: " + std::to_string(item_amount);
             ret.push_back(message);
         }
-        else if(command == "tradeitem" && args.size() >= 3 && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+        else if(command == "tradeitem" && args.size() >= 3 && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.trade.get())
         {
             std::string item_name = "";
             for(unsigned int i = 1; i < args.size() - 1; ++i)
@@ -166,10 +166,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
                 s.eprocessor.item_request.run = true;
                 s.eprocessor.item_request.clock.restart();
 
-                PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
-                packet.AddChar(138);
-                packet.AddShort(gameworld_id);
-                s.eoclient.Send(packet);
+                s.eoclient.TradeRequest(gameworld_id);
             }
             else
             {
@@ -199,7 +196,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         }
     }
 
-    if(command == "eor" && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    if(command == "eor" && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.trade.get())
     {
         s.eprocessor.eo_roulette.Run(gameworld_id);
 
@@ -226,10 +223,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         {
             if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.winner == -1 && s.eprocessor.eo_roulette.payments < 16)
             {
-                PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
-                packet.AddChar(138);
-                packet.AddShort(gameworld_id);
-                s.eoclient.Send(packet);
+                s.eoclient.TradeRequest(gameworld_id);
             }
             else if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.winner == -1 && s.eprocessor.eo_roulette.payments >= 16)
             {
@@ -277,13 +271,13 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     }
     else if(command == "help")
     {
-        std::string message = "Commands: #help, #help_eor, #eor (EORoulette), #trade (eor), #uptime, #jackpot, #jptime (jackpot time).";
+        std::string message = "Commands: #help, #help_eor, #eor (EORoulette), #sitwin(SitAndWin), #trade (eor), #uptime.";
         ret.push_back(message);
-        message = "#hscore (highest jackpot wins), #wru (where are you), #getitem (item name here) - get specified item from the bot";
+        message = "#jackpot, #jackpotxxl, #jptime (jackpot time), #hscore (jackpot wins), #wru, #welcome";
         ret.push_back(message);
-        message = "#giveitem - give items to the bot so other players can get them when they need to. #jackpotxxl.";
+        message = "#getitem (item name here), #giveitem - give items to the bot so other players can get them when they need to.";
         ret.push_back(message);
-        message = "#gitem - same like #getitem but doesn't force text to upper or lower case. #items (amount of inventory items).";
+        message = "#gitem - same like #getitem but doesn't format text to upper or lower case. #items (amount of inventory items).";
         ret.push_back(message);
         message = "You can cast commands through public and private chat";
         ret.push_back(message);
@@ -383,10 +377,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             s.eprocessor.item_request.run = true;
             s.eprocessor.item_request.clock.restart();
 
-            PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
-            packet.AddChar(138);
-            packet.AddShort(gameworld_id);
-            s.eoclient.Send(packet);
+            s.eoclient.TradeRequest(gameworld_id);
         }
 
         std::string message = "Item ";
@@ -452,10 +443,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             s.eprocessor.item_request.run = true;
             s.eprocessor.item_request.clock.restart();
 
-            PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
-            packet.AddChar(138);
-            packet.AddShort(gameworld_id);
-            s.eoclient.Send(packet);
+            s.eoclient.TradeRequest(gameworld_id);
         }
 
         std::string message = "Item ";
@@ -477,17 +465,14 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         s.eprocessor.DelayedMessage(message, 1000);
     }
-    else if(command == "giveitem" && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    else if(command == "giveitem" && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.trade.get())
     {
         s.eprocessor.item_request.gameworld_id = gameworld_id;
         s.eprocessor.item_request.give = true;
         s.eprocessor.item_request.run = true;
         s.eprocessor.item_request.clock.restart();
 
-        PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
-        packet.AddChar(138);
-        packet.AddShort(gameworld_id);
-        s.eoclient.Send(packet);
+        s.eoclient.TradeRequest(gameworld_id);
 
         std::string message = "Please trade me the items you want to give (available 12 seconds).";
         s.eprocessor.DelayedMessage(message, 1000);
@@ -519,6 +504,22 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         message += std::to_string(s.inventory.items.size()) + " items.";
 
         ret.push_back(message);
+    }
+    else if(command == "sitwin" && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.trade.get())
+    {
+        std::string message = "Welcome to SitAndWin. Please trade me the item you want to put in the game. You've got 15 seconds.";
+
+        s.eprocessor.sitwin.Run(gameworld_id);
+
+        s.eoclient.TalkPublic(message);
+    }
+    else if(command == "welcome")
+    {
+        s.eprocessor.DelayedMessage("Commands: type #help for command list.");
+        s.eprocessor.DelayedMessage("Last updates: -no jackpot monster: the bot won't take your money to the jackpot anymore.");
+        s.eprocessor.DelayedMessage("-#eor game is for everyone now: it doesn't require gold to join played game.");
+        s.eprocessor.DelayedMessage("-not answering Sordie messages.");
+        s.eprocessor.DelayedMessage("-SitAndWin game: sit next to the bot to have a chance to win an item.");
     }
 
     return ret;

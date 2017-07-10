@@ -17,19 +17,13 @@ void Trade_Request(PacketReader reader)
         {
             if(s.eprocessor.eo_roulette.winner == -1)
             {
-                PacketBuilder packet(PacketFamily::Trade, PacketAction::Accept);
-                packet.AddChar(138);
-                packet.AddShort(gameworld_id);
-                s.eoclient.Send(packet);
+                s.eoclient.TradeAccept(gameworld_id);
             }
             else
             {
                 if(gameworld_id == s.eprocessor.eo_roulette.winner)
                 {
-                    PacketBuilder packet(PacketFamily::Trade, PacketAction::Accept);
-                    packet.AddChar(138);
-                    packet.AddShort(gameworld_id);
-                    s.eoclient.Send(packet);
+                    s.eoclient.TradeAccept(gameworld_id);
                 }
             }
         }
@@ -42,10 +36,27 @@ void Trade_Request(PacketReader reader)
     {
         if(gameworld_id == s.eprocessor.item_request.gameworld_id)
         {
-            PacketBuilder packet(PacketFamily::Trade, PacketAction::Accept);
-            packet.AddChar(138);
-            packet.AddShort(gameworld_id);
-            s.eoclient.Send(packet);
+            s.eoclient.TradeAccept(gameworld_id);
+        }
+    }
+    else if(s.eprocessor.sitwin.run)
+    {
+        if(!s.eprocessor.sitwin.play)
+        {
+            if(s.eprocessor.sitwin.winner == -1)
+            {
+                if(gameworld_id == s.eprocessor.sitwin.gameworld_id && s.eprocessor.sitwin.item_id == 0)
+                {
+                    s.eoclient.TradeAccept(gameworld_id);
+                }
+            }
+            else
+            {
+                if(gameworld_id == s.eprocessor.sitwin.winner)
+                {
+                    s.eoclient.TradeAccept(gameworld_id);
+                }
+            }
         }
     }
 }
@@ -61,13 +72,9 @@ void Trade_Open(PacketReader reader)
 
     s.eprocessor.trade = std::shared_ptr<EventProcessor::Trade>(new EventProcessor::Trade(gameworld_id));
 
-    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run)
     {
-        s.eprocessor.trade.reset();
-
-        PacketBuilder packet(PacketFamily::Trade, PacketAction::Close);
-        packet.AddChar(138);
-        s.eoclient.Send(packet);
+        s.eoclient.TradeClose();
         return;
     }
 
@@ -77,17 +84,11 @@ void Trade_Open(PacketReader reader)
 
         if(s.eprocessor.eo_roulette.winner == -1)
         {
-            PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
-            packet.AddShort(1);
-            packet.AddInt(1);
-            s.eoclient.Send(packet);
+            s.eoclient.TradeAdd(1, 1);
         }
         else
         {
-            PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
-            packet.AddShort(1);
-            packet.AddInt(s.eprocessor.eo_roulette.gold_given);
-            s.eoclient.Send(packet);
+            s.eoclient.TradeAdd(1, s.eprocessor.eo_roulette.gold_given);
         }
     }
     else if(s.eprocessor.item_request.run)
@@ -96,17 +97,24 @@ void Trade_Open(PacketReader reader)
 
         if(s.eprocessor.item_request.give)
         {
-            PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
-            packet.AddShort(1);
-            packet.AddInt(1);
-            s.eoclient.Send(packet);
+            s.eoclient.TradeAdd(1, 1);
         }
         else
         {
-            PacketBuilder packet(PacketFamily::Trade, PacketAction::Add);
-            packet.AddShort(s.eprocessor.item_request.id);
-            packet.AddInt(s.eprocessor.item_request.amount);
-            s.eoclient.Send(packet);
+            s.eoclient.TradeAdd(s.eprocessor.item_request.id, s.eprocessor.item_request.amount);
+        }
+    }
+    else if(s.eprocessor.sitwin.run)
+    {
+        s.eprocessor.sitwin.clock.restart();
+
+        if(s.eprocessor.sitwin.winner == -1)
+        {
+            s.eoclient.TradeAdd(1, 1);
+        }
+        else
+        {
+            s.eoclient.TradeAdd(s.eprocessor.sitwin.item_id, s.eprocessor.sitwin.item_amount);
         }
     }
 
@@ -161,17 +169,13 @@ void Trade_Reply(PacketReader reader) // update of trade items
     }
     reader.GetByte(); // 255
 
-    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run)
     {
-        s.eprocessor.trade.reset();
-
-        PacketBuilder packet(PacketFamily::Trade, PacketAction::Close);
-        packet.AddChar(138);
-        s.eoclient.Send(packet);
+        s.eoclient.TradeClose();
         return;
     }
 
-    if(s.eprocessor.eo_roulette.run)
+    if(s.eprocessor.eo_roulette.run || s.eprocessor.sitwin.run)
     {
         bool player_put_item = true;
         bool victim_put_item = false;
@@ -193,6 +197,19 @@ void Trade_Reply(PacketReader reader) // update of trade items
                     victim_put_item = true;
                 }
             }
+            else if(s.eprocessor.sitwin.run)
+            {
+                if(s.eprocessor.sitwin.winner == -1)
+                {
+                    s.eprocessor.sitwin.item_id = id;
+                    s.eprocessor.sitwin.item_amount = amount;
+                    victim_put_item = true;
+                }
+                else
+                {
+                    victim_put_item = true;
+                }
+            }
         }
 
         for(unsigned int i = 0; i < s.eprocessor.trade->player_items.size(); ++i)
@@ -207,13 +224,15 @@ void Trade_Reply(PacketReader reader) // update of trade items
                     player_put_item = true;
                 }
             }
+            else if(s.eprocessor.sitwin.run)
+            {
+                player_put_item = true;
+            }
         }
 
         if(player_put_item && victim_put_item)
         {
-            PacketBuilder packet(PacketFamily::Trade, PacketAction::Agree);
-            packet.AddChar(true);
-            s.eoclient.Send(packet);
+            s.eoclient.TradeAgree();
         }
     }
 }
@@ -241,9 +260,7 @@ void Trade_Agree(PacketReader reader) // trade agree status update
 
     if(s.eprocessor.item_request.run && s.eprocessor.trade->victim_items.size() > 0)
     {
-        PacketBuilder packet(PacketFamily::Trade, PacketAction::Agree);
-        packet.AddChar(true);
-        s.eoclient.Send(packet);
+        s.eoclient.TradeAgree();
     }
 }
 
@@ -293,6 +310,14 @@ void Trade_Use(PacketReader reader) // trade finished
         {
             s.eprocessor.eo_roulette.gold_given += amount;
             s.eprocessor.eo_roulette.payments++;
+        }
+        if(s.eprocessor.sitwin.run)
+        {
+            if(s.eprocessor.sitwin.winner == -1)
+            {
+                s.eprocessor.sitwin.item_id = id;
+                s.eprocessor.sitwin.item_amount = amount;
+            }
         }
     }
 
@@ -346,5 +371,26 @@ void Trade_Use(PacketReader reader) // trade finished
             message += " Now someone can take particular items if he/she needs to.";
             s.eprocessor.DelayedMessage(message, 1000);
         }
+    }
+    else if(s.eprocessor.sitwin.run)
+    {
+        std::string message;
+        if(s.eprocessor.sitwin.winner == -1)
+        {
+            s.eprocessor.sitwin.clock.restart();
+
+            std::string item_name = s.eif->Get(s.eprocessor.sitwin.item_id).name;
+
+            message = std::string() + "->" + item_name + " x" + std::to_string(s.eprocessor.sitwin.item_amount) + "<-";
+            message += " in the bank.";
+            message += " Please sit next to me to have a chance to win! Starting in 20 seconds...";
+        }
+        else
+        {
+            s.eprocessor.sitwin.run = false;
+            message = "The game has been finished.";
+        }
+
+        s.eoclient.TalkPublic(message);
     }
 }

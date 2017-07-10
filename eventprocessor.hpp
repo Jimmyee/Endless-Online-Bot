@@ -77,6 +77,24 @@ struct ItemRequest
     ItemRequest() { this->run = false; id = 0; this->amount = 1; this->gameworld_id = 0; this->give = true; this->clock.restart(); }
 };
 
+struct SitWin
+{
+    bool run;
+    bool play;
+    short item_id;
+    int item_amount;
+    short gameworld_id;
+    short winner;
+    sf::Clock clock;
+    sf::Clock reminder_clock;
+
+    SitWin();
+    SitWin(short item_id, short item_amount, short gameworld_id);
+    void Run(short gameworld_id);
+    void Process();
+    void Play();
+};
+
 struct EventProcessor
 {
     struct Trade
@@ -111,6 +129,7 @@ struct EventProcessor
     sf::Clock uptime_clock;
     sf::Clock refresh_clock;
     ItemRequest item_request;
+    SitWin sitwin;
 
     EventProcessor();
 
