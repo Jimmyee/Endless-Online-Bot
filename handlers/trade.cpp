@@ -369,7 +369,10 @@ void Trade_Use(PacketReader reader) // trade finished
             name[0] = std::toupper(s.map.characters[i].name[0]);
             if(i != -1) message += name + ".";
             message += " Now someone can take particular items if he/she needs to.";
-            s.eprocessor.DelayedMessage(message, 1000);
+            EventProcessor::DelayMessage delay_message(message, 1000);
+            delay_message.channel = 1;
+            delay_message.victim_name = s.map.characters[i].name;
+            s.eprocessor.DelayedMessage(delay_message);
         }
     }
     else if(s.eprocessor.sitwin.run)

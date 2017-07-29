@@ -95,6 +95,8 @@ public:
     void TradeAdd(short item_id, int item_amount);
     void TradeAgree();
     void TradeClose();
+    void Walk(Direction direction);
+    void Attack(Direction direction);
 };
 
 #endif // EOCLIENT_HPP_INCLUDED

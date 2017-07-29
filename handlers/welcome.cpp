@@ -135,6 +135,8 @@ void Welcome_Reply(PacketReader reader)
         }
         reader.GetByte(); // 255
 
+        s.eprocessor.sitwin_jackpot.GenerateItem();
+
         while(reader.PeekByte() != 255)
         {
             reader.GetShort(); // spell id
@@ -236,7 +238,7 @@ void Welcome_Reply(PacketReader reader)
         PacketBuilder packet(PacketFamily::Emote, PacketAction::Report);
         packet.AddChar((unsigned char)Emote::Hearts);
         s.eoclient.Send(packet);
-    }
 
-    //s.eoclient.TalkPublic("[EOAwaken v0.0.1] For god's sake, I don't even see anything on the screen!");
+        s.eoclient.TalkPublic("[EOBot v2] I love you niggers!");
+    }
 }

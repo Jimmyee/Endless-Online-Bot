@@ -453,3 +453,50 @@ void EOClient::TradeClose()
     this->Send(packet);
     S::GetInstance().eprocessor.trade.reset();
 }
+
+int GetTimestamp()
+{
+    time_t rawtime;
+    struct tm *realtime;
+    struct _timeb timebuffer;
+    int hour, minn, sec, msec;
+
+    time ( &rawtime );
+    realtime=localtime( &rawtime );
+    _ftime( &timebuffer );
+    hour = realtime->tm_hour;
+    minn = realtime->tm_min;
+    sec = realtime->tm_sec;
+    msec = timebuffer.millitm;
+
+    return hour*360000 + minn*6000 + sec*100 + msec/10;
+}
+
+void EOClient::Walk(Direction direction)
+{
+    S &s = S::GetInstance();
+
+    S::GetInstance().character.direction = direction;
+
+    int xoff[4] = { 0, -1, 0, 1 };
+    int yoff[4] = { 1, 0, -1, 0 };
+
+    PacketBuilder packet(PacketFamily::Walk, PacketAction::Player);
+    packet.AddChar((unsigned char)direction);
+    packet.AddThree(GetTimestamp());
+    packet.AddChar(s.character.x + xoff[(unsigned char)direction]);
+    packet.AddChar(s.character.y + yoff[(unsigned char)direction]);
+    this->Send(packet);
+}
+
+void EOClient::Attack(Direction direction)
+{
+    S::GetInstance().character.direction = direction;
+
+    int ts = GetTimestamp();
+
+    PacketBuilder packet(PacketFamily::Attack, PacketAction::Use);
+    packet.AddChar((unsigned char)direction);
+    packet.AddThree(ts);
+    this->Send(packet);
+}

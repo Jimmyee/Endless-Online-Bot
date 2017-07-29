@@ -80,14 +80,6 @@ std::string ChatBot::GetMessage(std::string message)
 void ChatBot::Process()
 {
     S &s = S::GetInstance();
-
-    if(this->clock.getElapsedTime().asSeconds() > 1200)
-    {
-        int i = s.rand_gen.RandInt(0, this->database.size() - 1);
-
-        s.eprocessor.DelayedMessage(database[i]);
-        this->clock.restart();
-    }
 }
 
 void ChatBot::ProcessMessage(std::string message)
@@ -134,7 +126,6 @@ void ChatBot::ProcessMessage(std::string message)
     if(message_proposals.size() > 0 && s.rand_gen.RandInt(0, 11) == 0)
     {
         int i = s.rand_gen.RandInt(0, message_proposals.size() - 1);
-        s.eprocessor.DelayedMessage(message_proposals[i]);
     }
 }
 
@@ -180,10 +171,7 @@ void EORoulette::Run(short gameworld_id)
 
     S &s = S::GetInstance();
 
-    PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
-    packet.AddChar(138);
-    packet.AddShort(this->gameworld_id);
-    s.eoclient.Send(packet);
+    s.eoclient.TradeRequest(this->gameworld_id);
 }
 
 void EORoulette::Process()
@@ -255,10 +243,13 @@ void EORoulette::Process()
                 if(winners.size() > 0)
                 {
                     int index = s.rand_gen.RandInt(0, winners.size() - 1);
+                    index += s.rand_gen.RandInt(1, 3);
+                    if(index >= winners.size()) index = 0;
+
                     Character winner = winners[index];
                     this->winner = winner.gameworld_id;
 
-                    if(this->jackpot)
+                    if((this->jackpot && this->gold_given > 0) || this->gold_given >= 999)
                     {
                         Config::Entry entry("", "");
                         entry.key = std::to_string(this->jpconfig.entries.size());
@@ -276,10 +267,7 @@ void EORoulette::Process()
                     message = "Please trade me to receive your award. (Available 15 seconds)";
                     s.eprocessor.DelayedMessage(message, 5000);
 
-                    PacketBuilder packet(PacketFamily::Trade, PacketAction::Request);
-                    packet.AddChar(138);
-                    packet.AddShort(winner.gameworld_id);
-                    s.eoclient.Send(packet);
+                    s.eoclient.TradeRequest(winner.gameworld_id);
                 }
                 else
                 {
@@ -349,7 +337,7 @@ void EORoulette::Process()
         }
         else if(elapsed >= jackpot_time - 180 && elapsed < jackpot_time - 10)
         {
-            if(this->reminder_clock.getElapsedTime().asSeconds() >= 30)
+            if(this->reminder_clock.getElapsedTime().asSeconds() >= 120)
             {
                 std::string message = "Attention! EORoulette Jackpot game starts in ";
                 message += std::to_string(jackpot_time - elapsed);
@@ -358,17 +346,17 @@ void EORoulette::Process()
                 s.eoclient.TalkPublic(message);
                 this->reminder_clock.restart();
             }
-            else if(this->reminder_global.getElapsedTime().asSeconds() >= 120)
+            else if(this->reminder_global.getElapsedTime().asSeconds() >= 180)
             {
                 std::string message = "Attention! EORoulette Jackpot game starts in ";
                 message += std::to_string(jackpot_time - elapsed);
                 message += " seconds! You can get my location by sending me #wru through PM.";
 
-                s.eoclient.TalkGlobal(message);
+                //s.eoclient.TalkGlobal(message);
                 this->reminder_global.restart();
             }
         }
-        else if(elapsed >= jackpot_time - 10 && elapsed < jackpot_time)
+        /*else if(elapsed >= jackpot_time - 10 && elapsed < jackpot_time)
         {
             if(this->reminder_clock.getElapsedTime().asSeconds() >= 1)
             {
@@ -377,7 +365,7 @@ void EORoulette::Process()
                 s.eoclient.TalkPublic(message);
                 this->reminder_clock.restart();
             }
-        }
+        }*/
     }
 }
 
@@ -399,24 +387,6 @@ void ChaseBot::Reset()
 void ChaseBot::Process()
 {
     this->Act();
-}
-
-int GetTimestamp()
-{
-    time_t rawtime;
-    struct tm *realtime;
-    struct _timeb timebuffer;
-    int hour, minn, sec, msec;
-
-    time ( &rawtime );
-    realtime=localtime( &rawtime );
-    _ftime( &timebuffer );
-    hour = realtime->tm_hour;
-    minn = realtime->tm_min;
-    sec = realtime->tm_sec;
-    msec = timebuffer.millitm;
-
-    return hour*360000 + minn*6000 + sec*100 + msec/10;
 }
 
 bool Walkable(unsigned char x, unsigned char y)
@@ -469,14 +439,7 @@ bool ChaseBot::Walk(Direction direction)
     {
         if(Walkable(s.character.x + xoff, s.character.y + yoff) && this->walk_clock.getElapsedTime().asMilliseconds() >= 460)
         {
-            s.character.direction = direction;
-
-            PacketBuilder packet(PacketFamily::Walk, PacketAction::Player);
-            packet.AddChar((unsigned char)s.character.direction);
-            packet.AddThree(GetTimestamp());
-            packet.AddChar(s.character.x + xoff);
-            packet.AddChar(s.character.y + yoff);
-            s.eoclient.Send(packet);
+            s.eoclient.Walk(direction);
 
             s.character.x += xoff;
             s.character.y += yoff;
@@ -663,6 +626,20 @@ void SitWin::Run(short gameworld_id)
     S::GetInstance().eoclient.TradeRequest(this->gameworld_id);
 }
 
+void SitWin::RunJackpot(short item_id, int item_amount)
+{
+    this->run = true;
+    this->play = false;
+    this->item_id = item_id;
+    this->item_amount = item_amount;
+    this->gameworld_id = -1;
+    this->winner = -1;
+    this->clock.restart();
+    this->reminder_clock.restart();
+
+    S::GetInstance().eoclient.TalkPublic("20 seconds to jackpot!");
+}
+
 void SitWin::Process()
 {
     S &s = S::GetInstance();
@@ -689,6 +666,9 @@ void SitWin::Process()
             if(winners.size() > 0)
             {
                 int index = s.rand_gen.RandInt(0, winners.size() - 1);
+                index += s.rand_gen.RandInt(1, 3);
+                if(index >= winners.size()) index = 0;
+
                 Character winner = winners[index];
                 this->winner = winner.gameworld_id;
 
@@ -704,7 +684,7 @@ void SitWin::Process()
                 message = "Please trade me to receive your award. (Available 15 seconds)";
                 s.eprocessor.DelayedMessage(message, 5000);
 
-                s.eoclient.TradeRequest(winner.gameworld_id);
+                s.eoclient.TradeRequest(this->winner);
                 s.eprocessor.sitwin.clock.restart();
             }
             else
@@ -728,7 +708,6 @@ void SitWin::Process()
                         s.eoclient.TradeClose();
                     }
 
-                    s.eoclient.TalkPublic("Start!");
                     if(this->item_id != 0 && this->item_amount != 0)
                     {
                         this->Play();
@@ -748,18 +727,8 @@ void SitWin::Process()
                     }
 
                     s.eoclient.TalkPublic("Time's up. The game has been finished.");
+                    this->gameworld_id = -1;
                     this->run = false;
-                }
-            }
-            else if(elapsed >= time_delay - 5
-                    && elapsed < time_delay && this->winner == -1)
-            {
-                if(elapsed_reminder >= 1)
-                {
-                    std::string message = std::to_string(time_delay - elapsed);
-
-                    s.eoclient.TalkPublic(message);
-                    this->reminder_clock.restart();
                 }
             }
         }
@@ -771,6 +740,101 @@ void SitWin::Play()
     this->play = true;
     this->winner = -1;
     this->clock.restart();
+}
+
+SitWinJackpot::SitWinJackpot()
+{
+    this->item_id = 0;
+    this->item_amount = 0;
+    this->jp_time = 12600;
+    //this->Reset();
+}
+
+bool SitWinJackpot::GenerateItem()
+{
+    S &s = S::GetInstance();
+
+    short new_item_id = 0;
+    int new_item_amount = 0;
+
+    if(s.inventory.items.size() == 0)
+    {
+        this->item_id = new_item_id;
+        this->item_amount = new_item_amount;
+
+        return false;
+    }
+
+    unsigned int index = s.rand_gen.RandInt(0, s.inventory.items.size() - 1);;
+    while(s.inventory.items[index].first == 1)
+    {
+        index = s.rand_gen.RandInt(0, s.inventory.items.size() - 1);
+    }
+    new_item_id = (short)s.inventory.items[index].first;
+    new_item_amount = s.rand_gen.RandInt(1, (int)s.inventory.items[index].second);
+
+    this->item_id = new_item_id;
+    this->item_amount = new_item_amount;
+
+    return true;
+}
+
+void SitWinJackpot::Process()
+{
+    S &s = S::GetInstance();
+
+    int elapsed = this->clock.getElapsedTime().asSeconds();
+    if(elapsed >= this->jp_time)
+    {
+        int item_id = this->item_id;
+        int item_amount = this->item_amount;
+
+        this->Reset();
+
+        s.eprocessor.sitwin.RunJackpot(item_id, item_amount);
+
+        s.eoclient.TalkPublic("Jackpot game started!");
+    }
+    else if(elapsed >= this->jp_time - 180 && elapsed < this->jp_time - 10)
+    {
+        if(this->reminder_clock.getElapsedTime().asSeconds() >= 120)
+        {
+            std::string message = "Attention! SitAndWin Jackpot game starts in ";
+            message += std::to_string(this->jp_time - elapsed);
+            message += " seconds!";
+
+            s.eoclient.TalkPublic(message);
+            this->reminder_clock.restart();
+        }
+        else if(this->reminder_global.getElapsedTime().asSeconds() >= 180)
+        {
+            std::string message = "Attention! SitAndWin Jackpot game starts in ";
+            message += std::to_string(this->jp_time - elapsed);
+            message += " seconds! You can get my location by sending me #wru through PM.";
+
+            //s.eoclient.TalkGlobal(message);
+            this->reminder_global.restart();
+        }
+    }
+    /*else if(elapsed >= this->jp_time - 10 && elapsed < this->jp_time)
+    {
+        if(this->reminder_clock.getElapsedTime().asSeconds() >= 1)
+        {
+            std::string message = std::to_string(this->jp_time - elapsed);
+
+            s.eoclient.TalkPublic(message);
+            this->reminder_clock.restart();
+        }
+    }*/
+}
+
+void SitWinJackpot::Reset()
+{
+    this->clock.restart();
+    this->reminder_clock.restart();
+    this->reminder_global.restart();
+
+    this->GenerateItem();
 }
 
 EventProcessor::EventProcessor()
@@ -814,16 +878,13 @@ void EventProcessor::Process()
     }
 
     this->sitwin.Process();
+    this->sitwin_jackpot.Process();
 
     this->chat_bot.Process();
 
     if(this->help_message_clock.getElapsedTime().asSeconds() > 1200)
     {
         this->DelayedMessage("Commands: type #help for command list.");
-        this->DelayedMessage("Last updates: -no jackpot monster: the bot won't take your money to the jackpot anymore.");
-        this->DelayedMessage("-#eor game is for everyone now: it doesn't require gold to join the played game.");
-        this->DelayedMessage("-not answering Sordie messages.");
-        this->DelayedMessage("-SitAndWin game: sit next to the bot to have a chance to win an item.");
         this->help_message_clock.restart();
     }
 

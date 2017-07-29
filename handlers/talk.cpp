@@ -39,7 +39,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     }
 
     puts(message.c_str());
-    printf("Command: '%s' %i arguments\n", command.c_str(), args.size());
+    printf("Command: '%s' %i arguments\n", command.c_str(), (int)args.size());
     if(name == s.config.GetValue("Master"))
     {
         if(command == "exit")
@@ -190,6 +190,74 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
             ret.push_back(message);
         }
+        else if(command == "setstdelay" && args.size() == 2)
+        {
+            int jp_time = std::atoi(args[1].c_str());
+
+            s.eprocessor.sitwin_jackpot.jp_time = jp_time;
+
+            int hours = jp_time / 3600;
+            int minutes = (jp_time % 3600) / 60;
+            int seconds = (jp_time % 3600) % 60;
+
+            std::string message = "SitAndWin jackpot time set to ";
+            message += std::to_string(hours) + "h " + std::to_string(minutes) + "m " + std::to_string(seconds) + "s.";
+            ret.push_back(message);
+        }
+        else if(command == "stgen")
+        {
+            s.eprocessor.sitwin_jackpot.GenerateItem();
+
+            if(s.eprocessor.sitwin_jackpot.item_id == 0)
+            {
+                ret.push_back("SitAndWin jackpot is loading...");
+            }
+            else
+            {
+                std::string message = "SitAndWin jackpot: ";
+                std::string name = s.eif->Get(s.eprocessor.sitwin_jackpot.item_id).name;
+                std::string item_name = name;
+                item_name[0] = std::toupper(name[0]);
+                std::string item_amount = std::to_string(s.eprocessor.sitwin_jackpot.item_amount);
+                message += item_name + " x" + item_amount;
+
+                ret.push_back(message);
+            }
+        }
+        else if(command == "setstitem" && args.size() >= 2)
+        {
+            std::string item_name = "";
+            for(unsigned int i = 1; i < args.size(); ++i)
+            {
+                std::string word = args[i];
+
+                std::transform(word.begin(), word.end(), word.begin(), ::tolower);
+                word[0] = std::toupper(args[i][0]);
+                item_name += word;
+                if(i != args.size() - 1)
+                {
+                    item_name += " ";
+                }
+            }
+
+            int item_id = s.eif->GetByName(item_name).id;
+            bool found = s.inventory.FindItem(item_id, s.eprocessor.item_request.amount);
+            if(found)
+            {
+                s.eprocessor.sitwin_jackpot.item_id = item_id;
+                s.eprocessor.sitwin_jackpot.item_amount = 1;
+
+                s.eoclient.TalkPublic(std::string() + "ST item set to " + item_name);
+            }
+        }
+        else if(command == "atk")
+        {
+            s.eoclient.Attack((Direction)s.rand_gen.RandInt(0, 3));
+        }
+        else if(command == "face")
+        {
+            s.eoclient.Face((Direction)s.rand_gen.RandInt(0, 3));
+        }
         else
         {
             puts("Wrong master command");
@@ -264,7 +332,10 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     else if(command == "wru")
     {
         std::string new_message = "I'm at map #";
-        new_message += std::to_string(s.emf->id) + (s.emf->id == 5? " (Aeven)" : "");
+        new_message += std::to_string(s.emf->id) + " '";
+        if(s.emf->id == 5) new_message += "Aeven";
+        if(s.emf->id == 84) new_message += "1st bank";
+        new_message += "'";
         new_message += ", x: " + std::to_string(s.character.x) + ", y: " + std::to_string(s.character.y);
 
         ret.push_back(new_message);
@@ -273,11 +344,13 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     {
         std::string message = "Commands: #help, #help_eor, #eor (EORoulette), #sitwin(SitAndWin), #trade (eor), #uptime.";
         ret.push_back(message);
-        message = "#jackpot, #jackpotxxl, #jptime (jackpot time), #hscore (jackpot wins), #wru, #welcome";
+        message = "#jackpot, #jackpotxxl, #jptime (jackpot time), #hscore, #wru, #welcome";
         ret.push_back(message);
         message = "#getitem (item name here), #giveitem - give items to the bot so other players can get them when they need to.";
         ret.push_back(message);
         message = "#gitem - same like #getitem but doesn't format text to upper or lower case. #items (amount of inventory items).";
+        ret.push_back(message);
+        message = "#jpsitwin, #stitem, #rand_winner";
         ret.push_back(message);
         message = "You can cast commands through public and private chat";
         ret.push_back(message);
@@ -336,7 +409,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         ret.push_back(winners);
     }
-    else if(command == "gitem" && args.size() >= 2 && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    else if(command == "gitem" && args.size() >= 2 && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run)
     {
         std::string item_name = "";
         for(unsigned int i = 1; i < args.size(); ++i)
@@ -353,7 +426,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         bool found = s.inventory.FindItem(item_id, s.eprocessor.item_request.amount);
         bool locked = false;
 
-        if(item_id == 1)
+        if(item_id == 1 || item_id == s.eprocessor.sitwin_jackpot.item_id)
         {
             locked = true;
         }
@@ -389,17 +462,21 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         {
             if(locked && name != s.config.GetValue("Master"))
             {
-                message += item_name + " is locked from giving away. It's used for EORoulette.";
+                message += item_name + " is locked from giving away.";
             }
             else if(!locked)
             {
                 message += "is not found in my inventory.";
             }
+            else if(locked)
+            {
+                message += item_name + " is locked from giving away.";
+            }
         }
 
         s.eprocessor.DelayedMessage(message, 1000);
     }
-    else if(command == "getitem" && args.size() >= 2 && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run)
+    else if(command == "getitem" && args.size() >= 2 && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run)
     {
         std::string item_name = "";
         for(unsigned int i = 1; i < args.size(); ++i)
@@ -419,7 +496,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         bool found = s.inventory.FindItem(item_id, s.eprocessor.item_request.amount);
         bool locked = false;
 
-        if(item_name == "Gold" || item_id == 1)
+        if(item_name == "Gold" || item_id == 1 || item_id == s.eprocessor.sitwin_jackpot.item_id)
         {
             locked = true;
         }
@@ -455,11 +532,15 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         {
             if(locked && name != s.config.GetValue("Master"))
             {
-                message += item_name + " is locked from giving away. It's used for EORoulette.";
+                message += item_name + " is locked from giving away.";
             }
             else if(!locked)
             {
                 message += "is not found in my inventory.";
+            }
+            else if(locked)
+            {
+                message += item_name + " is locked from giving away.";
             }
         }
 
@@ -488,7 +569,9 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         std::string message = "";
         if(index != -1)
         {
-            message += char_name + "'s level: ";
+            std::string name_upper = char_name;
+            name_upper[0] = std::toupper(char_name[0]);
+            message += name_upper + "'s level: ";
             message += std::to_string(s.map.characters[index].level);
         }
         else
@@ -516,10 +599,55 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     else if(command == "welcome")
     {
         s.eprocessor.DelayedMessage("Commands: type #help for command list.");
-        s.eprocessor.DelayedMessage("Last updates: -no jackpot monster: the bot won't take your money to the jackpot anymore.");
-        s.eprocessor.DelayedMessage("-#eor game is for everyone now: it doesn't require gold to join played game.");
-        s.eprocessor.DelayedMessage("-not answering Sordie messages.");
-        s.eprocessor.DelayedMessage("-SitAndWin game: sit next to the bot to have a chance to win an item.");
+    }
+    else if(command == "jpsitwin")
+    {
+        int elapsed = s.eprocessor.sitwin_jackpot.jp_time - s.eprocessor.sitwin_jackpot.clock.getElapsedTime().asSeconds();
+
+        int hours = elapsed / 3600;
+        int minutes = (elapsed % 3600) / 60;
+        int seconds = (elapsed % 3600) % 60;
+
+        std::string message = "Time left for the sitwin jackpot game: ";
+        message += std::to_string(hours) + "h " + std::to_string(minutes) + "m " + std::to_string(seconds) + "s.";
+        ret.push_back(message);
+    }
+    else if(command == "stitem")
+    {
+        if(s.eprocessor.sitwin_jackpot.item_id == 0)
+        {
+            ret.push_back("SitAndWin jackpot is loading...");
+        }
+        else
+        {
+            std::string message = "SitAndWin jackpot: ";
+            std::string name = s.eif->Get(s.eprocessor.sitwin_jackpot.item_id).name;
+            std::string item_name = name;
+            item_name[0] = std::toupper(name[0]);
+            std::string item_amount = std::to_string(s.eprocessor.sitwin_jackpot.item_amount);
+            message += item_name + " x" + item_amount;
+
+            ret.push_back(message);
+        }
+    }
+    else if(command == "rand_winner")
+    {
+        if(!s.eprocessor.eo_roulette.jpconfig.entries.empty())
+        {
+            int index = s.rand_gen.RandInt(0, s.eprocessor.eo_roulette.jpconfig.entries.size() - 1);
+            std::vector<std::string> config_args = Args(s.eprocessor.eo_roulette.jpconfig.entries[index].value);
+            std::string char_name = config_args[0];
+            std::string upper_name = char_name;
+            upper_name[0] = std::toupper(char_name[0]);
+
+            std::string amount = config_args[1];
+
+            ret.push_back(std::string() + upper_name + ": " + amount + " gold.");
+        }
+        else
+        {
+            ret.push_back("Sorry. no data found.");
+        }
     }
 
     return ret;

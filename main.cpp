@@ -21,7 +21,7 @@ void initialize_data_handlers()
     puts("data handlers initialized");
 }
 
-int main()
+int main(int, char**)
 {
     initialize_data_handlers();
 
