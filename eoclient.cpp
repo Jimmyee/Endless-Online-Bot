@@ -500,3 +500,10 @@ void EOClient::Attack(Direction direction)
     packet.AddThree(ts);
     this->Send(packet);
 }
+
+void EOClient::Sit(SitAction sit_action)
+{
+    PacketBuilder packet(PacketFamily::Sit, PacketAction::Request);
+    packet.AddChar((unsigned char)sit_action);
+    this->Send(packet);
+}

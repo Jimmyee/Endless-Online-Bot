@@ -34,4 +34,6 @@ void NPC_Spec(PacketReader reader);
 
 void Refresh_Reply(PacketReader reader);
 
+void Item_Drop(PacketReader reader);
+
 #endif // HANDLERS_HPP_INCLUDED

@@ -134,7 +134,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             message += " amount: " + std::to_string(item_amount);
             ret.push_back(message);
         }
-        else if(command == "tradeitem" && args.size() >= 3 && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.trade.get())
+        else if(command == "tradeitem" && args.size() >= 3 && !s.eprocessor.BlockingEvent())
         {
             std::string item_name = "";
             for(unsigned int i = 1; i < args.size() - 1; ++i)
@@ -252,7 +252,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         }
         else if(command == "atk")
         {
-            s.eoclient.Attack((Direction)s.rand_gen.RandInt(0, 3));
+            s.eoclient.Attack(s.character.direction);
         }
         else if(command == "face")
         {
@@ -264,7 +264,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         }
     }
 
-    if(command == "eor" && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.trade.get())
+    if(command == "eor" && !s.eprocessor.BlockingEvent())
     {
         s.eprocessor.eo_roulette.Run(gameworld_id);
 
@@ -409,7 +409,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         ret.push_back(winners);
     }
-    else if(command == "gitem" && args.size() >= 2 && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run)
+    else if(command == "gitem" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
     {
         std::string item_name = "";
         for(unsigned int i = 1; i < args.size(); ++i)
@@ -476,7 +476,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         s.eprocessor.DelayedMessage(message, 1000);
     }
-    else if(command == "getitem" && args.size() >= 2 && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run)
+    else if(command == "getitem" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
     {
         std::string item_name = "";
         for(unsigned int i = 1; i < args.size(); ++i)
@@ -546,7 +546,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         s.eprocessor.DelayedMessage(message, 1000);
     }
-    else if(command == "giveitem" && !s.eprocessor.trade.get() && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.trade.get())
+    else if(command == "giveitem" && !s.eprocessor.BlockingEvent())
     {
         s.eprocessor.item_request.gameworld_id = gameworld_id;
         s.eprocessor.item_request.give = true;
@@ -588,7 +588,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         ret.push_back(message);
     }
-    else if(command == "sitwin" && !s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.trade.get())
+    else if(command == "sitwin" && !s.eprocessor.BlockingEvent())
     {
         std::string message = "Welcome to SitAndWin. Please trade me the item you want to put in the game. You've got 15 seconds.";
 

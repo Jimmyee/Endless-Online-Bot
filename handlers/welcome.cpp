@@ -233,12 +233,12 @@ void Welcome_Reply(PacketReader reader)
 
         s.eoclient.RegisterHandler(PacketFamily::Refresh, PacketAction::Reply, Refresh_Reply);
 
+        s.eoclient.RegisterHandler(PacketFamily::Item, PacketAction::Drop, Item_Drop);
+
         s.eoclient.SetState(EOClient::State::Playing);
 
         PacketBuilder packet(PacketFamily::Emote, PacketAction::Report);
         packet.AddChar((unsigned char)Emote::Hearts);
         s.eoclient.Send(packet);
-
-        s.eoclient.TalkPublic("[EOBot v2] I love you niggers!");
     }
 }

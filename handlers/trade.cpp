@@ -345,12 +345,19 @@ void Trade_Use(PacketReader reader) // trade finished
         }
         else
         {
+            s.eprocessor.eo_roulette.run = false;
+            int thirdpart = s.eprocessor.eo_roulette.gold_given / 3;
             s.eprocessor.eo_roulette.gold_given = 0;
             if(s.eprocessor.eo_roulette.jackpot)
             {
                 s.eprocessor.eo_roulette.total_gold = 0;
-                s.eprocessor.eo_roulette.jackpot = false;
             }
+            else
+            {
+                s.eprocessor.eo_roulette.total_gold += thirdpart;
+            }
+            s.eprocessor.eo_roulette.jackpot = false;
+
             message = "The game has been finished.";
         }
 

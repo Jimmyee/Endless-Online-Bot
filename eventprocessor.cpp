@@ -161,6 +161,7 @@ void EORoulette::Run(short gameworld_id)
     this->gold_given = 0;
     this->spins = 0;
     this->max_spins = S::GetInstance().rand_gen.RandInt(12, 24);
+    this->max_spins += S::GetInstance().rand_gen.RandInt(0, 3);
     this->spin_delay = 100;
     this->play = false;
     this->winner = -1;
@@ -243,8 +244,8 @@ void EORoulette::Process()
                 if(winners.size() > 0)
                 {
                     int index = s.rand_gen.RandInt(0, winners.size() - 1);
-                    index += s.rand_gen.RandInt(1, 3);
-                    if(index >= winners.size()) index = 0;
+                    index += s.rand_gen.RandInt(0, 3);
+                    if(index >= winners.size()) index = s.rand_gen.RandInt(0, winners.size() - 1);
 
                     Character winner = winners[index];
                     this->winner = winner.gameworld_id;
@@ -317,7 +318,7 @@ void EORoulette::Process()
     {
         int jackpot_time = this->jp_time;
         int elapsed = this->jackpot_clock.getElapsedTime().asSeconds();
-        if(elapsed >= jackpot_time)
+        if(elapsed >= jackpot_time && !s.eprocessor.BlockingEvent())
         {
             this->gameworld_id = -1;
             this->gold_given = this->total_gold;
@@ -665,9 +666,9 @@ void SitWin::Process()
 
             if(winners.size() > 0)
             {
-                int index = s.rand_gen.RandInt(0, winners.size() - 1);
-                index += s.rand_gen.RandInt(1, 3);
-                if(index >= winners.size()) index = 0;
+                unsigned int index = s.rand_gen.RandInt(0, winners.size() - 1);
+                index += s.rand_gen.RandInt(0, 3);
+                if(index >= winners.size()) index = s.rand_gen.RandInt(0, winners.size() - 1);
 
                 Character winner = winners[index];
                 this->winner = winner.gameworld_id;
@@ -765,11 +766,13 @@ bool SitWinJackpot::GenerateItem()
         return false;
     }
 
-    unsigned int index = s.rand_gen.RandInt(0, s.inventory.items.size() - 1);;
-    while(s.inventory.items[index].first == 1)
+    unsigned int index = s.rand_gen.RandInt(0, s.inventory.items.size() - 1);
+    while(s.inventory.items[index].first == 1 && s.inventory.items.size() > 1)
     {
         index = s.rand_gen.RandInt(0, s.inventory.items.size() - 1);
     }
+    if(s.inventory.items[index].first == 1) return false;
+
     new_item_id = (short)s.inventory.items[index].first;
     new_item_amount = s.rand_gen.RandInt(1, (int)s.inventory.items[index].second);
 
@@ -784,7 +787,7 @@ void SitWinJackpot::Process()
     S &s = S::GetInstance();
 
     int elapsed = this->clock.getElapsedTime().asSeconds();
-    if(elapsed >= this->jp_time)
+    if(elapsed >= this->jp_time && !s.eprocessor.eo_roulette.run && !s.eprocessor.sitwin.run && !s.eprocessor.item_request.run && !s.eprocessor.trade.get())
     {
         int item_id = this->item_id;
         int item_amount = this->item_amount;
@@ -792,8 +795,6 @@ void SitWinJackpot::Process()
         this->Reset();
 
         s.eprocessor.sitwin.RunJackpot(item_id, item_amount);
-
-        s.eoclient.TalkPublic("Jackpot game started!");
     }
     else if(elapsed >= this->jp_time - 180 && elapsed < this->jp_time - 10)
     {
@@ -835,6 +836,47 @@ void SitWinJackpot::Reset()
     this->reminder_global.restart();
 
     this->GenerateItem();
+}
+
+Lottery::Lottery()
+{
+    this->run = false;
+    this->play = false;
+    this->clock.restart();
+}
+
+void Lottery::Run()
+{
+    this->run = true;
+    this->clock.restart();
+    this->tickets.clear();
+
+    S::GetInstance().eoclient.TalkPublic("Lottery game started! Please choose 3 numbers with #pick <number> and pay for the ticket.");
+}
+
+void Lottery::Process()
+{
+    S &s = S::GetInstance();
+
+    if(this->run)
+    {
+        if(this->play)
+        {
+            if(this->tickets.empty())
+            {
+                this->play = false;
+                this->run = false;
+                s.eoclient.TalkPublic("The game has been canceled - no tickets registered.");
+                return;
+            }
+
+
+        }
+        else
+        {
+
+        }
+    }
 }
 
 EventProcessor::EventProcessor()
@@ -881,10 +923,13 @@ void EventProcessor::Process()
     this->sitwin_jackpot.Process();
 
     this->chat_bot.Process();
+    //this->chase_bot.Process();
 
     if(this->help_message_clock.getElapsedTime().asSeconds() > 1200)
     {
         this->DelayedMessage("Commands: type #help for command list.");
+        //this->DelayedMessage("Hey, on 4th august Jimmyeebot is gonna launch a game in which you can win more than 400 000 gold.");
+        //this->DelayedMessage("The time the game will be played at is: 00:22, UTC+02:00, near Aeven church. See you there and good luck!");
         this->help_message_clock.restart();
     }
 
@@ -962,4 +1007,14 @@ void EventProcessor::DelayedMessage(DelayMessage delay_message)
     }
 
     this->d_messages.push_back(delay_message);
+}
+
+bool EventProcessor::BlockingEvent()
+{
+    if(this->trade.get() || this->eo_roulette.run || this->item_request.run || this->sitwin.run || this->lottery.run)
+    {
+        return true;
+    }
+
+    return false;
 }

@@ -97,6 +97,7 @@ public:
     void TradeClose();
     void Walk(Direction direction);
     void Attack(Direction direction);
+    void Sit(SitAction sit_action);
 };
 
 #endif // EOCLIENT_HPP_INCLUDED
