@@ -17,7 +17,7 @@ Config::Config(std::string filename)
 
 bool Config::Load(std::string filename)
 {
-    std::ifstream file(filename, std::ios::in);
+    std::ifstream file(filename);
     if(!file.is_open())
     {
         printf("Config: Could not load file");
@@ -67,7 +67,7 @@ bool Config::Load(std::string filename)
 
 void Config::Save(std::string filename)
 {
-    std::ofstream file(filename, std::ios::out | std::ios::trunc);
+    std::ofstream file(filename, std::ios::trunc);
     if(!file.is_open())
     {
         printf("Config: Could not open file");
@@ -78,7 +78,6 @@ void Config::Save(std::string filename)
     for(unsigned int i = 0; i < this->entries.size(); ++i)
     {
         data += '[' + this->entries[i].key + '=' + this->entries[i].value + ']' + '\n';
-        //std::string str = std::string() + "[" + it->first + "=" + it->second + "]" + '\n';
 
     }
     file.write(data.c_str(), data.size());

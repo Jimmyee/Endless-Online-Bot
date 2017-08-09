@@ -40,7 +40,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
     puts(message.c_str());
     printf("Command: '%s' %i arguments\n", command.c_str(), (int)args.size());
-    if(name == s.config.GetValue("Master"))
+    if(name == s.config.GetValue("Master") && s.eprocessor.Whitelist(name))
     {
         if(command == "exit")
         {
@@ -264,6 +264,39 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         }
     }
 
+    if(command == "login" && args.size() == 2)
+    {
+        std::string pass = args[1];
+
+        bool logged_in = false;
+        for(unsigned int i = 0; i < s.eprocessor.whitelist.size(); ++i)
+        {
+            if(s.eprocessor.whitelist[i] == name)
+            {
+                logged_in = true;
+                break;
+            }
+        }
+
+        if(pass == s.config.GetValue("MasterPassword") && !logged_in)
+        {
+            s.eprocessor.whitelist.push_back(name);
+
+            s.eoclient.TalkTell(name, "Access granted.");
+        }
+    }
+    else if(command == "logout")
+    {
+        for(unsigned int i = 0; i < s.eprocessor.whitelist.size(); ++i)
+        {
+            if(s.eprocessor.whitelist[i] == name)
+            {
+                s.eprocessor.whitelist.erase(s.eprocessor.whitelist.begin() + i);
+                s.eoclient.TalkTell(name, "Logged out.");
+                break;
+            }
+        }
+    }
     if(command == "eor" && !s.eprocessor.BlockingEvent())
     {
         s.eprocessor.eo_roulette.Run(gameworld_id);
@@ -350,7 +383,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         ret.push_back(message);
         message = "#gitem - same like #getitem but doesn't format text to upper or lower case. #items (amount of inventory items).";
         ret.push_back(message);
-        message = "#jpsitwin, #stitem, #rand_winner";
+        message = "#jpsitwin, #stitem, #rand_winner, #lottery <ticket price>, #number <number>";
         ret.push_back(message);
         message = "You can cast commands through public and private chat";
         ret.push_back(message);
@@ -647,6 +680,58 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         else
         {
             ret.push_back("Sorry. no data found.");
+        }
+    }
+    else if(command == "lottery" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
+    {
+        int ticket_price = std::atoi(args[1].c_str());
+
+        s.eprocessor.lottery.Run(ticket_price);
+    }
+    else if(command == "number" && args.size() >= 2)
+    {
+        if(s.eprocessor.lottery.run && !s.eprocessor.lottery.play)
+        {
+            int number = std::atoi(args[1].c_str());
+
+            if(number < 1 || number > 7)
+            {
+                ret.push_back("Number out of range, has to be 1-7.");
+                return ret;
+            }
+
+            bool registered = false;
+
+            for(unsigned int i = 0; i < s.eprocessor.lottery.tickets.size(); ++i)
+            {
+                int index = s.map.GetCharacterIndex(s.eprocessor.lottery.tickets[i].gameworld_id);
+                if(index != -1)
+                {
+                    if(s.map.characters[index].gameworld_id == gameworld_id)
+                    {
+                        registered = true;
+                    }
+                }
+            }
+
+            if(!registered)
+            {
+                s.eprocessor.lottery.tickets.push_back(Lottery::Ticket(gameworld_id, number));
+                s.eprocessor.lottery.clock.restart();
+
+                std::string upper_name = name;
+                upper_name[0] = std::toupper(name[0]);
+
+                std::string message = upper_name + ", please pay ";
+                message += std::to_string(s.eprocessor.lottery.ticket_price) + "g for the ticket (available 15 seconds).";
+                s.eoclient.TalkPublic(message);
+                s.eoclient.TradeRequest(gameworld_id);
+            }
+            else
+            {
+                //std::string message = upper_name + ", you're already registered.";
+                //s.eoclient.TalkPublic(message);
+            }
         }
     }
 

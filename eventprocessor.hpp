@@ -116,16 +116,22 @@ struct Lottery
     struct Ticket
     {
         short gameworld_id;
-        std::vector<int> numbers;
+        int number;
+
+        Ticket(short gameworld_id, int number) { this->gameworld_id = gameworld_id; this->number = number; }
     };
 
     bool run;
     bool play;
     std::vector<Ticket> tickets;
+    std::vector<Ticket> requests;
     sf::Clock clock;
+    short winner;
+    int ticket_price;
 
     Lottery();
     void Run();
+    void Run(int ticket_price);
     void Process();
 };
 
@@ -166,6 +172,7 @@ struct EventProcessor
     SitWin sitwin;
     SitWinJackpot sitwin_jackpot;
     Lottery lottery;
+    std::vector<std::string> whitelist;
 
     EventProcessor();
 
@@ -173,6 +180,7 @@ struct EventProcessor
     void DelayedMessage(std::string message, int time_ms = 0);
     void DelayedMessage(DelayMessage delay_message);
     bool BlockingEvent();
+    bool Whitelist(std::string name);
 };
 
 #endif // EVENTPROCESSOR_HPP_INCLUDED

@@ -59,6 +59,37 @@ void Trade_Request(PacketReader reader)
             }
         }
     }
+    else if(s.eprocessor.lottery.run)
+    {
+        if(!s.eprocessor.lottery.play)
+        {
+            bool found = false;
+
+            if(s.eprocessor.lottery.requests.empty())
+            {
+                return;
+            }
+
+            for(unsigned int i = 0; i < s.eprocessor.lottery.requests.size(); ++i)
+            {
+                if(s.eprocessor.lottery.requests[i].gameworld_id == gameworld_id)
+                {
+                    found = true;
+                    break;
+                }
+            }
+
+            if(gameworld_id == s.eprocessor.lottery.winner)
+            {
+                found = true;
+            }
+
+            if(found)
+            {
+                s.eoclient.TradeAccept(gameworld_id);
+            }
+        }
+    }
 }
 
 void Trade_Open(PacketReader reader)
@@ -72,7 +103,7 @@ void Trade_Open(PacketReader reader)
 
     s.eprocessor.trade = std::shared_ptr<EventProcessor::Trade>(new EventProcessor::Trade(gameworld_id));
 
-    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run)
+    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.lottery.run)
     {
         s.eoclient.TradeClose();
         return;
@@ -117,6 +148,22 @@ void Trade_Open(PacketReader reader)
             s.eoclient.TradeAdd(s.eprocessor.sitwin.item_id, s.eprocessor.sitwin.item_amount);
         }
     }
+    else if(s.eprocessor.lottery.run)
+    {
+        s.eprocessor.lottery.clock.restart();
+
+        if(s.eprocessor.lottery.winner == -1)
+        {
+            s.eoclient.TradeAdd(1, 1);
+        }
+        else
+        {
+            int amount = s.eprocessor.lottery.tickets.size() * s.eprocessor.lottery.ticket_price;
+            int award = amount;
+            award -= amount / 20;
+            s.eoclient.TradeAdd(1, amount);
+        }
+    }
 
     s.eoclient.TalkPublic("Trading...");
 }
@@ -131,6 +178,17 @@ void Trade_Close(PacketReader reader) // other player closed trade
     if(s.eprocessor.eo_roulette.run && !s.eprocessor.eo_roulette.play)
     {
         s.eprocessor.eo_roulette.payments++;
+    }
+    else if(s.eprocessor.lottery.run)
+    {
+        for(unsigned int i = 0; i < s.eprocessor.lottery.requests.size(); ++i)
+        {
+            if(s.eprocessor.lottery.requests[i].gameworld_id == gameworld_id)
+            {
+                //s.eprocessor.lottery.requests.erase(s.eprocessor.lottery.requests.begin() + i);
+                break;
+            }
+        }
     }
 }
 
@@ -169,13 +227,13 @@ void Trade_Reply(PacketReader reader) // update of trade items
     }
     reader.GetByte(); // 255
 
-    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run)
+    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.lottery.run)
     {
         s.eoclient.TradeClose();
         return;
     }
 
-    if(s.eprocessor.eo_roulette.run || s.eprocessor.sitwin.run)
+    if(s.eprocessor.eo_roulette.run || s.eprocessor.sitwin.run || s.eprocessor.lottery.run)
     {
         bool player_put_item = true;
         bool victim_put_item = false;
@@ -210,6 +268,17 @@ void Trade_Reply(PacketReader reader) // update of trade items
                     victim_put_item = true;
                 }
             }
+            else if(s.eprocessor.lottery.run)
+            {
+                if(s.eprocessor.lottery.winner == -1 && id == 1 && amount >= s.eprocessor.lottery.ticket_price)
+                {
+                    victim_put_item = true;
+                }
+                else if(s.eprocessor.lottery.winner != -1)
+                {
+                    victim_put_item = true;
+                }
+            }
         }
 
         for(unsigned int i = 0; i < s.eprocessor.trade->player_items.size(); ++i)
@@ -227,6 +296,13 @@ void Trade_Reply(PacketReader reader) // update of trade items
             else if(s.eprocessor.sitwin.run)
             {
                 player_put_item = true;
+            }
+            else if(s.eprocessor.lottery.run)
+            {
+                if(id == 1)
+                {
+                    player_put_item = true;
+                }
             }
         }
 
@@ -319,6 +395,17 @@ void Trade_Use(PacketReader reader) // trade finished
                 s.eprocessor.sitwin.item_amount = amount;
             }
         }
+        if(id == 1 && s.eprocessor.lottery.run)
+        {
+            for(unsigned int i = 0; i < s.eprocessor.lottery.requests.size(); ++i)
+            {
+                if(s.eprocessor.lottery.requests[i].gameworld_id == gameworld_id)
+                {
+                    s.eprocessor.lottery.tickets.push_back(s.eprocessor.lottery.requests[i]);
+                    s.eprocessor.lottery.requests.erase(s.eprocessor.lottery.requests.begin() + i);
+                }
+            }
+        }
     }
 
     for(unsigned int i = 0; i < s.eprocessor.trade->player_items.size(); ++i)
@@ -346,15 +433,10 @@ void Trade_Use(PacketReader reader) // trade finished
         else
         {
             s.eprocessor.eo_roulette.run = false;
-            int thirdpart = s.eprocessor.eo_roulette.gold_given / 3;
             s.eprocessor.eo_roulette.gold_given = 0;
             if(s.eprocessor.eo_roulette.jackpot)
             {
                 s.eprocessor.eo_roulette.total_gold = 0;
-            }
-            else
-            {
-                s.eprocessor.eo_roulette.total_gold += thirdpart;
             }
             s.eprocessor.eo_roulette.jackpot = false;
 
@@ -398,6 +480,25 @@ void Trade_Use(PacketReader reader) // trade finished
         else
         {
             s.eprocessor.sitwin.run = false;
+            message = "The game has been finished.";
+        }
+
+        s.eoclient.TalkPublic(message);
+    }
+    else if(s.eprocessor.lottery.run)
+    {
+        std::string message;
+        if(s.eprocessor.lottery.winner == -1)
+        {
+            s.eprocessor.lottery.clock.restart();
+
+            message = std::string() + std::to_string(s.eprocessor.lottery.tickets.size() * s.eprocessor.lottery.ticket_price);
+            message += " gold in the bank. You can still register tickets. Starting in 15 seconds...";
+        }
+        else
+        {
+            s.eprocessor.lottery.run = false;
+
             message = "The game has been finished.";
         }
 

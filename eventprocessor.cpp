@@ -241,6 +241,21 @@ void EORoulette::Process()
                     }
                 }
 
+                bool alternative_winner = false;
+                if(winners.empty())
+                {
+                    for(unsigned int i = 0; i < s.map.characters.size(); ++i)
+                    {
+                        int path_len = path_length(s.character.x, s.character.y, s.map.characters[i].x, s.map.characters[i].y);
+
+                        if(path_len == 1)
+                        {
+                            winners.push_back(s.map.characters[i]);
+                            alternative_winner = true;
+                        }
+                    }
+                }
+
                 if(winners.size() > 0)
                 {
                     int index = s.rand_gen.RandInt(0, winners.size() - 1);
@@ -259,23 +274,33 @@ void EORoulette::Process()
                         this->jpconfig.Save("./jackpots.txt");
                     }
 
+                    int jackpot_percentage = this->gold_given / 20;
+                    this->gold_given -= jackpot_percentage;
+
+                    if(alternative_winner)
+                    {
+                        s.eprocessor.DelayedMessage("No one won, giving gold to random player...", 1000);
+                    }
+
                     std::string name_upper = winner.name;
                     name_upper[0] = std::toupper(winner.name[0]);
 
                     std::string message = "Congratulations " + name_upper;
                     message += ", you won " + std::to_string(this->gold_given) + " gold!";
-                    s.eprocessor.DelayedMessage(message, 1000);
+                    s.eprocessor.DelayedMessage(message, alternative_winner? 3000 : 1000);
                     message = "Please trade me to receive your award. (Available 15 seconds)";
-                    s.eprocessor.DelayedMessage(message, 5000);
+                    s.eprocessor.DelayedMessage(message, 3000);
 
                     s.eoclient.TradeRequest(winner.gameworld_id);
                 }
                 else
                 {
-                    s.eoclient.TalkPublic("Sorry, no one won.");
+                    std::string message = "Sorry, no one won.";
+                    s.eprocessor.DelayedMessage(message, 1000);
+
                     this->run = false;
-                    int thirdpart = this->gold_given / 3;
-                    this->total_gold += this->jackpot? 0 : thirdpart * 2;
+                    int jackpot_percentage = (this->gold_given / 3) * 2;
+                    this->total_gold += this->jackpot? 0 : jackpot_percentage;
                     this->jackpot = false;
                 }
             }
@@ -285,6 +310,11 @@ void EORoulette::Process()
             int time_delay = (s.eprocessor.trade.get() || this->winner != -1)? 15 : 12;
             if(this->clock.getElapsedTime().asSeconds() >= time_delay)
             {
+                if(s.eprocessor.trade.get())
+                {
+                    s.eoclient.TradeClose();
+                }
+
                 if(this->winner == -1)
                 {
                     if(this->gold_given > 0)
@@ -296,18 +326,15 @@ void EORoulette::Process()
                     else
                     {
                         this->run = false;
-                        if(s.eprocessor.trade.get())
-                        {
-                            s.eoclient.TradeClose();
-                        }
                         s.eoclient.TalkPublic("The game has been canceled: no gold in the bank.");
                     }
                 }
                 else
                 {
                     this->run = false;
-                    int thirdpart = this->gold_given / 3;
-                    this->total_gold += this->jackpot? 0 : thirdpart;
+                    int jackpot_percentage = (this->gold_given / 3) * 2;
+                    this->gold_given = 0;
+                    this->total_gold += this->jackpot? 0 : jackpot_percentage;
                     this->jackpot = false;
                     s.eoclient.TalkPublic("The game has been finished.");
                 }
@@ -324,6 +351,7 @@ void EORoulette::Process()
             this->gold_given = this->total_gold;
             this->spins = 0;
             this->max_spins = S::GetInstance().rand_gen.RandInt(12, 24);
+            this->max_spins += S::GetInstance().rand_gen.RandInt(0, 3);
             this->spin_delay = 100;
             this->play = true;
             this->winner = -1;
@@ -843,6 +871,8 @@ Lottery::Lottery()
     this->run = false;
     this->play = false;
     this->clock.restart();
+    this->winner = -1;
+    this->ticket_price = 2;
 }
 
 void Lottery::Run()
@@ -850,8 +880,17 @@ void Lottery::Run()
     this->run = true;
     this->clock.restart();
     this->tickets.clear();
+    this->requests.clear();
+    this->winner = -1;
+    this->ticket_price = 2;
 
-    S::GetInstance().eoclient.TalkPublic("Lottery game started! Please choose 3 numbers with #pick <number> and pay for the ticket.");
+    S::GetInstance().eoclient.TalkPublic("Lottery game started! Please choose 1 number with #number <number> (in range of 1-7).");
+}
+
+void Lottery::Run(int ticket_price)
+{
+    this->Run();
+    this->ticket_price = ticket_price;
 }
 
 void Lottery::Process()
@@ -862,19 +901,87 @@ void Lottery::Process()
     {
         if(this->play)
         {
+            this->play = false;
+
             if(this->tickets.empty())
             {
-                this->play = false;
                 this->run = false;
                 s.eoclient.TalkPublic("The game has been canceled - no tickets registered.");
                 return;
             }
 
+            int winning_number = s.rand_gen.RandInt(1, 7);
+            std::vector<Character> winners;
 
+            for(unsigned int i = 0; i < this->tickets.size(); ++i)
+            {
+                if(this->tickets[i].number == winning_number)
+                {
+                    int index = s.map.GetCharacterIndex(this->tickets[i].gameworld_id);
+                    if(index != -1)
+                    {
+                        winners.push_back(s.map.characters[index]);
+                    }
+                }
+            }
+
+            if(this->tickets.size() == 1 && winners.empty())
+            {
+                int index = s.map.GetCharacterIndex(this->tickets[1].gameworld_id);
+                winners.push_back(s.map.characters[index]);
+            }
+
+            std::string message = "The winning number is: " + std::to_string(winning_number) + ".";
+            s.eprocessor.DelayedMessage(EventProcessor::DelayMessage(message, 2000));
+
+            if(winners.empty())
+            {
+                this->run = false;
+                message = "Sorry, no one won.";
+                s.eprocessor.DelayedMessage(EventProcessor::DelayMessage(message, 2000));
+                return;
+            }
+
+            unsigned int winner_index = s.rand_gen.RandInt(0, winners.size() - 1);
+            this->winner = winners[winner_index].gameworld_id;
+            int gold = this->tickets.size() * this->ticket_price;
+            int award = gold;
+            award -= gold / 20;
+
+            std::string name = winners[winner_index].name;
+            std::string upper_name = name;
+            upper_name[0] = std::toupper(name[0]);
+
+            message = "Congratulations " + upper_name + ", you won " + std::to_string(award) + " gold.";
+            s.eprocessor.DelayedMessage(EventProcessor::DelayMessage(message, 2000));
+            message = "Please trade me to receive your reward (available 15 seconds).";
+            s.eprocessor.DelayedMessage(EventProcessor::DelayMessage(message, 2000));
+
+            s.eoclient.TradeRequest(this->winner);
         }
         else
         {
+            int time_delay = 15;
+            if(this->clock.getElapsedTime().asSeconds() >= time_delay)
+            {
+                if(s.eprocessor.trade.get())
+                {
+                    s.eoclient.TradeClose();
+                }
 
+                if(!this->tickets.empty())
+                {
+                    s.eoclient.TalkPublic("Start!");
+                    this->play = true;
+                    this->clock.restart();
+                }
+                else
+                {
+                    std::string message = "Time out. No tickets registered.";
+
+                    this->run = false;
+                }
+            }
         }
     }
 }
@@ -924,6 +1031,7 @@ void EventProcessor::Process()
 
     this->chat_bot.Process();
     //this->chase_bot.Process();
+    this->lottery.Process();
 
     if(this->help_message_clock.getElapsedTime().asSeconds() > 1200)
     {
@@ -1014,6 +1122,19 @@ bool EventProcessor::BlockingEvent()
     if(this->trade.get() || this->eo_roulette.run || this->item_request.run || this->sitwin.run || this->lottery.run)
     {
         return true;
+    }
+
+    return false;
+}
+
+bool EventProcessor::Whitelist(std::string name)
+{
+    for(unsigned int i = 0; i < this->whitelist.size(); ++i)
+    {
+        if(this->whitelist[i] == name)
+        {
+            return true;
+        }
     }
 
     return false;
