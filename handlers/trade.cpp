@@ -63,30 +63,40 @@ void Trade_Request(PacketReader reader)
     {
         if(!s.eprocessor.lottery.play)
         {
-            bool found = false;
-
-            if(s.eprocessor.lottery.requests.empty())
+            if(s.eprocessor.lottery.winner == -1)
             {
-                return;
-            }
+                bool found = false;
 
-            for(unsigned int i = 0; i < s.eprocessor.lottery.requests.size(); ++i)
-            {
-                if(s.eprocessor.lottery.requests[i].gameworld_id == gameworld_id)
+                if(s.eprocessor.lottery.requests.empty())
+                {
+                    return;
+                }
+
+                for(unsigned int i = 0; i < s.eprocessor.lottery.requests.size(); ++i)
+                {
+                    if(s.eprocessor.lottery.requests[i].gameworld_id == gameworld_id)
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+
+                if(gameworld_id == s.eprocessor.lottery.winner)
                 {
                     found = true;
-                    break;
+                }
+
+                if(found)
+                {
+                    s.eoclient.TradeAccept(gameworld_id);
                 }
             }
-
-            if(gameworld_id == s.eprocessor.lottery.winner)
+            else
             {
-                found = true;
-            }
-
-            if(found)
-            {
-                s.eoclient.TradeAccept(gameworld_id);
+                if(gameworld_id == s.eprocessor.lottery.winner)
+                {
+                    s.eoclient.TradeAccept(gameworld_id);
+                }
             }
         }
     }
@@ -158,10 +168,7 @@ void Trade_Open(PacketReader reader)
         }
         else
         {
-            int amount = s.eprocessor.lottery.tickets.size() * s.eprocessor.lottery.ticket_price;
-            int award = amount;
-            award -= amount / 20;
-            s.eoclient.TradeAdd(1, amount);
+            s.eoclient.TradeAdd(1, s.eprocessor.lottery.award);
         }
     }
 

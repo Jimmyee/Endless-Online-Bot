@@ -5,6 +5,7 @@
 
 #include "const/character.hpp"
 
+#include <SFML/System.hpp>
 #include <string>
 
 class Character
@@ -66,6 +67,8 @@ public:
 
     SitState sitting;
     unsigned char visibility;
+
+    sf::Clock command_clock;
 
     Character();
 };

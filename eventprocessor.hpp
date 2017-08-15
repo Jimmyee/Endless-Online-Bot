@@ -128,6 +128,7 @@ struct Lottery
     sf::Clock clock;
     short winner;
     int ticket_price;
+    int award;
 
     Lottery();
     void Run();
@@ -173,6 +174,7 @@ struct EventProcessor
     SitWinJackpot sitwin_jackpot;
     Lottery lottery;
     std::vector<std::string> whitelist;
+    Config help_config;
 
     EventProcessor();
 

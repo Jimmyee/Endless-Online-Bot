@@ -43,4 +43,6 @@ Character::Character()
 
     this->sitting = static_cast<SitState>(0);
     this->visibility = 0;
+
+    this->command_clock.restart();
 }

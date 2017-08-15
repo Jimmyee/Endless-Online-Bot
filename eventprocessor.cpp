@@ -275,7 +275,9 @@ void EORoulette::Process()
                     }
 
                     int jackpot_percentage = this->gold_given / 20;
+                    if(this->jackpot || (this->payments == 1 && this->winner == this->gameworld_id)) jackpot_percentage = 0;
                     this->gold_given -= jackpot_percentage;
+                    this->total_gold += jackpot_percentage / 2;
 
                     if(alternative_winner)
                     {
@@ -408,8 +410,8 @@ void ChaseBot::Reset()
     this->victim_gameworld_id = -1;
     this->walk_clock.restart();
     this->follow_clock.restart();
-    this->center_x = 34;
-    this->center_y = 42;
+    this->center_x = 38;
+    this->center_y = 40;
     this->go_center = false;
 }
 
@@ -425,7 +427,8 @@ bool Walkable(unsigned char x, unsigned char y)
     bool warp_near = false;
 
     if(s.emf->GetWarp(x, y - 1).map != 0 || s.emf->GetWarp(x + 1, y).map != 0
-       || s.emf->GetWarp(x, y + 1).map != 0 || s.emf->GetWarp(x - 1, y).map != 0)
+       || s.emf->GetWarp(x, y + 1).map != 0 || s.emf->GetWarp(x - 1, y).map != 0
+       || s.emf->GetWarp(x, y).map != 0)
     {
         warp_near = true;
     }
@@ -441,6 +444,8 @@ bool Walkable(unsigned char x, unsigned char y)
 bool ChaseBot::Walk(Direction direction)
 {
     S &s = S::GetInstance();
+
+    if(s.eprocessor.BlockingEvent()) return false;
 
     int xoff = 0;
     int yoff = 0;
@@ -574,7 +579,7 @@ void ChaseBot::Act()
 
 	if(this->victim_gameworld_id != -1)
     {
-        if(!this->go_center && this->follow_clock.getElapsedTime().asSeconds() < 180)
+        if(!this->go_center && this->follow_clock.getElapsedTime().asSeconds() < 600)
         {
             int victim = s.map.GetCharacterIndex(this->victim_gameworld_id);
             if(victim == -1)
@@ -586,12 +591,12 @@ void ChaseBot::Act()
             int distance = path_length(s.map.characters[victim].x, s.map.characters[victim].y, s.character.x, s.character.y);
             int char_distance_center = path_length(this->center_x, this->center_y, s.map.characters[victim].x, s.map.characters[victim].y);
 
-            if(distance > 2 && char_distance_center < 6)
+            if(distance > 2)
             {
                 this->WalkTo(s.map.characters[victim].x, s.map.characters[victim].y);
             }
         }
-        else if(!this->go_center && this->follow_clock.getElapsedTime().asSeconds() >= 180)
+        else if(!this->go_center && this->follow_clock.getElapsedTime().asSeconds() >= 600)
         {
             this->go_center = true;
             this->victim_gameworld_id = -1;
@@ -873,6 +878,7 @@ Lottery::Lottery()
     this->clock.restart();
     this->winner = -1;
     this->ticket_price = 2;
+    this->award = 0;
 }
 
 void Lottery::Run()
@@ -883,6 +889,7 @@ void Lottery::Run()
     this->requests.clear();
     this->winner = -1;
     this->ticket_price = 2;
+    this->award = 0;
 
     S::GetInstance().eoclient.TalkPublic("Lottery game started! Please choose 1 number with #number <number> (in range of 1-7).");
 }
@@ -927,9 +934,16 @@ void Lottery::Process()
 
             if(this->tickets.size() == 1 && winners.empty())
             {
-                int index = s.map.GetCharacterIndex(this->tickets[1].gameworld_id);
+                int index = s.map.GetCharacterIndex(this->tickets[0].gameworld_id);
                 winners.push_back(s.map.characters[index]);
             }
+
+            int gold = this->tickets.size() * this->ticket_price;
+            int jackpot_percentage = gold / 20;
+            if(this->tickets.size() == 1) jackpot_percentage = 0;
+            this->award = gold;
+            this->award -= jackpot_percentage;
+            s.eprocessor.eo_roulette.total_gold += jackpot_percentage / 2;
 
             std::string message = "The winning number is: " + std::to_string(winning_number) + ".";
             s.eprocessor.DelayedMessage(EventProcessor::DelayMessage(message, 2000));
@@ -944,18 +958,24 @@ void Lottery::Process()
 
             unsigned int winner_index = s.rand_gen.RandInt(0, winners.size() - 1);
             this->winner = winners[winner_index].gameworld_id;
-            int gold = this->tickets.size() * this->ticket_price;
-            int award = gold;
-            award -= gold / 20;
 
             std::string name = winners[winner_index].name;
             std::string upper_name = name;
             upper_name[0] = std::toupper(name[0]);
 
-            message = "Congratulations " + upper_name + ", you won " + std::to_string(award) + " gold.";
+            if(this->tickets.size() == 1)
+            {
+                message = upper_name + ", no one played with you. Here's your gold back.";
+            }
+            else
+            {
+                message = "Congratulations " + upper_name + ", you won " + std::to_string(this->award) + " gold.";
+            }
             s.eprocessor.DelayedMessage(EventProcessor::DelayMessage(message, 2000));
             message = "Please trade me to receive your reward (available 15 seconds).";
             s.eprocessor.DelayedMessage(EventProcessor::DelayMessage(message, 2000));
+
+            this->tickets.clear();
 
             s.eoclient.TradeRequest(this->winner);
         }
@@ -977,7 +997,9 @@ void Lottery::Process()
                 }
                 else
                 {
-                    std::string message = "Time out. No tickets registered.";
+                    std::string message = "Time out. The game has been finished.";
+
+                    s.eoclient.TalkPublic(message);
 
                     this->run = false;
                 }
@@ -992,6 +1014,8 @@ EventProcessor::EventProcessor()
     this->autosave_clock.restart();
     this->uptime_clock.restart();
     this->refresh_clock.restart();
+
+    this->help_config.Load("help.txt");
 }
 
 void EventProcessor::Process()
@@ -1030,12 +1054,14 @@ void EventProcessor::Process()
     this->sitwin_jackpot.Process();
 
     this->chat_bot.Process();
-    //this->chase_bot.Process();
+    if(s.config.GetValue("ChaseBot") == "yes") this->chase_bot.Process();
     this->lottery.Process();
 
     if(this->help_message_clock.getElapsedTime().asSeconds() > 1200)
     {
-        this->DelayedMessage("Commands: type #help for command list.");
+        this->DelayedMessage("Dear players, some of the bot's commands have been changed.");
+        this->DelayedMessage("Please use #help to find out what are. Have fun and take care of your body, mind and spirit :)");
+        this->DelayedMessage("You can use #welcome command to show this info to other players.");
         //this->DelayedMessage("Hey, on 4th august Jimmyeebot is gonna launch a game in which you can win more than 400 000 gold.");
         //this->DelayedMessage("The time the game will be played at is: 00:22, UTC+02:00, near Aeven church. See you there and good luck!");
         this->help_message_clock.restart();

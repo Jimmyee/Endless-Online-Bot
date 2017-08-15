@@ -21,7 +21,7 @@ void Walk_Player(PacketReader reader)
     int distance_center = path_length(s.eprocessor.chase_bot.center_x, s.eprocessor.chase_bot.center_y, s.character.x, s.character.y);
 
     if(!s.eprocessor.chase_bot.go_center &&
-       (s.eprocessor.chase_bot.follow_clock.getElapsedTime().asSeconds() >= 165 || s.eprocessor.chase_bot.victim_gameworld_id == -1)
+       (s.eprocessor.chase_bot.follow_clock.getElapsedTime().asSeconds() >= 500 || s.eprocessor.chase_bot.victim_gameworld_id == -1)
        && distance_center < 6)
     {
         s.eprocessor.chase_bot.victim_gameworld_id = gameworld_id;
