@@ -4,13 +4,10 @@
 #define UTIL_HPP_INCLUDED
 
 #include <math.h>
+#include <vector>
+#include <string>
 
-static inline int path_length(int x1, int y1, int x2, int y2)
-{
-	int dx = std::abs(x1 - x2);
-	int dy = std::abs(y1 - y2);
-
-	return dx + dy;
-}
+int path_length(int x1, int y1, int x2, int y2);
+std::vector<std::string> Args(std::string str);
 
 #endif // UTIL_HPP_INCLUDED

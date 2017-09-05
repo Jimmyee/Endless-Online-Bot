@@ -111,7 +111,7 @@ void Trade_Open(PacketReader reader)
     short my_gameworld_id = reader.GetShort();
     std::string my_name = reader.GetBreakString();
 
-    s.eprocessor.trade = std::shared_ptr<EventProcessor::Trade>(new EventProcessor::Trade(gameworld_id));
+    s.eprocessor.trade = std::shared_ptr<Trade>(new Trade(gameworld_id));
 
     if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.lottery.run)
     {
@@ -465,7 +465,7 @@ void Trade_Use(PacketReader reader) // trade finished
             name[0] = std::toupper(s.map.characters[i].name[0]);
             if(i != -1) message += name + ".";
             message += " Now someone can take particular items if he/she needs to.";
-            EventProcessor::DelayMessage delay_message(message, 1000);
+            DelayMessage delay_message(message, 1000);
             delay_message.channel = 1;
             delay_message.victim_name = s.map.characters[i].name;
             s.eprocessor.DelayedMessage(delay_message);

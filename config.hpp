@@ -16,6 +16,7 @@ public:
 
         Entry(std::string key, std::string value) { this->key = key; this->value = value; }
     };
+
 public:
     std::vector<Entry> entries;
 

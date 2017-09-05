@@ -3,27 +3,7 @@
 #include "handlers.hpp"
 #include "../singleton.hpp"
 #include "../eventprocessor.hpp"
-
-std::vector<std::string> Args(std::string str)
-{
-    std::vector<std::string> args;
-    std::string word;
-    for(unsigned int i = 0; i < str.length(); ++i)
-    {
-        if((str[i] == ' ' || i == str.length() - 1))
-        {
-            if(str[i] != ' ') word += str[i];
-            if(!word.empty()) args.push_back(word);
-            word.clear();
-        }
-        else if(str[i] != ' ')
-        {
-            word += str[i];
-        }
-    }
-
-    return args;
-}
+#include "../util.hpp"
 
 std::vector<std::string> ProcessCommand(std::string name, std::string message, short gameworld_id)
 {
@@ -57,19 +37,19 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     printf("Command: '%s' %i arguments\n", command.c_str(), (int)args.size());
     if(name == s.config.GetValue("Master") && s.eprocessor.Whitelist(name))
     {
-        if(command == "exit")
+        /*if(command == "exit")
         {
             s.call_exit = true;
         }
         else if(command == "relog")
         {
             s.eoclient.Disconnect();
-        }
-        else if(command == "rchase")
+        }*/
+        /*else if(command == "rchase")
         {
             s.eprocessor.chase_bot.Reset();
-        }
-        else if(command == "dg" && args.size() == 2)
+        }*/
+        /*else if(command == "dg" && args.size() == 2)
         {
             int amount = std::atoi(args[1].c_str());
 
@@ -87,16 +67,16 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
                 packet.AddChar(s.character.y + yoff[i]);
                 s.eoclient.Send(packet);
             }
-        }
-        else if(command == "setjp" && args.size() == 2)
+        }*/
+        /*if(command == "setjp" && args.size() == 2)
         {
             int amount = std::atoi(args[1].c_str());
 
             s.eprocessor.eo_roulette.total_gold = amount;
 
             ret.push_back(std::string() + "Jackpot set to " + std::to_string(amount) + " gold.");
-        }
-        else if(command == "jp")
+        }*/
+        /*else if(command == "jp")
         {
             s.eprocessor.eo_roulette.gameworld_id = -1;
             s.eprocessor.eo_roulette.gold_given = s.eprocessor.eo_roulette.total_gold;
@@ -110,22 +90,8 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             s.eprocessor.eo_roulette.jackpot = true;
 
             s.eprocessor.eo_roulette.jackpot_clock.restart();
-        }
-        else if(command == "setjptime" && args.size() == 2)
-        {
-            int jp_time = std::atoi(args[1].c_str());
-
-            s.eprocessor.eo_roulette.jp_time = jp_time;
-
-            int hours = jp_time / 3600;
-            int minutes = (jp_time % 3600) / 60;
-            int seconds = (jp_time % 3600) % 60;
-
-            std::string message = "Jackpot time set to ";
-            message += std::to_string(hours) + "h " + std::to_string(minutes) + "m " + std::to_string(seconds) + "s.";
-            ret.push_back(message);
-        }
-        else if(command == "peekitem" && args.size() >= 2)
+        }*/
+        if(command == "peekitem" && args.size() >= 2)
         {
             std::string item_name = "";
             for(unsigned int i = 1; i < args.size(); ++i)
@@ -149,7 +115,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             message += " amount: " + std::to_string(item_amount);
             ret.push_back(message);
         }
-        else if(command == "tradeitem" && args.size() >= 3 && !s.eprocessor.BlockingEvent())
+        /*else if(command == "tradeitem" && args.size() >= 3 && !s.eprocessor.BlockingEvent())
         {
             std::string item_name = "";
             for(unsigned int i = 1; i < args.size() - 1; ++i)
@@ -187,8 +153,8 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             {
                 ret.push_back(std::string() + "Item " + item_name + " not found.");
             }
-        }
-        else if(command == "inventory")
+        }*/
+        /*else if(command == "inventory")
         {
             std::string message = "Random item from my inventory: ";
 
@@ -204,22 +170,8 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             }
 
             ret.push_back(message);
-        }
-        else if(command == "setstdelay" && args.size() == 2)
-        {
-            int jp_time = std::atoi(args[1].c_str());
-
-            s.eprocessor.sitwin_jackpot.jp_time = jp_time;
-
-            int hours = jp_time / 3600;
-            int minutes = (jp_time % 3600) / 60;
-            int seconds = (jp_time % 3600) % 60;
-
-            std::string message = "SitAndWin jackpot time set to ";
-            message += std::to_string(hours) + "h " + std::to_string(minutes) + "m " + std::to_string(seconds) + "s.";
-            ret.push_back(message);
-        }
-        else if(command == "stgen")
+        }*/
+        /*else if(command == "stgen")
         {
             s.eprocessor.sitwin_jackpot.GenerateItem();
 
@@ -238,8 +190,8 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
                 ret.push_back(message);
             }
-        }
-        else if(command == "setstitem" && args.size() >= 2)
+        }*/
+        /*else if(command == "setstitem" && args.size() >= 2)
         {
             std::string item_name = "";
             for(unsigned int i = 1; i < args.size(); ++i)
@@ -264,7 +216,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
                 s.eoclient.TalkPublic(std::string() + "ST item set to " + item_name);
             }
-        }
+        }*/
         else if(command == "atk")
         {
             s.eoclient.Attack(s.character.direction);
@@ -273,7 +225,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         {
             s.eoclient.Face((Direction)s.rand_gen.RandInt(0, 3));
         }
-        else if(command == "wear" && args.size() >= 2)
+        /*else if(command == "wear" && args.size() >= 2)
         {
             std::string item_name = "";
             for(unsigned int i = 1; i < args.size(); ++i)
@@ -334,7 +286,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             {
                 s.eoclient.TalkPublic("Item not found.");
             }
-        }
+        }*/
         else
         {
             puts("Wrong master command");
@@ -797,19 +749,13 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     }
     else if(command == "line")
     {
-        if(s.eprocessor.chat_bot.database.empty())
+        if(s.eprocessor.chat_bot.config.entries.empty())
         {
             return ret;
         }
 
-        std::string message = s.eprocessor.chat_bot.database[s.rand_gen.RandInt(0, s.eprocessor.chat_bot.database.size() - 1)];
-        ret.push_back(message);
-    }
-    else if(command == "welcome")
-    {
-        s.eprocessor.DelayedMessage("Dear players, some of the bot's commands have been changed.", 1000);
-        s.eprocessor.DelayedMessage("Please use #help to find out what are. Have fun and take care of your body, mind and spirit :)", 1000);
-        s.eprocessor.DelayedMessage("You can use #welcome command to show this info to other players.", 1000);
+        std::string message = s.eprocessor.chat_bot.config.entries[s.rand_gen.RandInt(0, s.eprocessor.chat_bot.config.entries.size() - 1)].value;
+        s.eprocessor.DelayedMessage(message, 1000);
     }
 
     return ret;
@@ -838,21 +784,21 @@ void Talk_Player(PacketReader reader)
 
         for(unsigned int i = 0; i < ret.size(); ++i)
         {
-            EventProcessor::DelayMessage delay_message(ret[i], 1000);
-            /*if(ret[0].length() > 32)
+            DelayMessage delay_message(ret[i], 1000);
+            if(ret[0].length() > 32)
             {
                 delay_message.channel = 1;
                 std::string name_lower = name;
                 name_lower[0] = std::tolower(name[0]);
                 delay_message.victim_name = name_lower;
-            }*/
+            }
 
             s.eprocessor.DelayedMessage(delay_message);
         }
     }
     else
     {
-        if(name != "panddda" && name != "sordie")
+        if(name != "panddda")
         {
             s.eprocessor.chat_bot.ProcessMessage(message);
         }
@@ -875,7 +821,7 @@ void Talk_Tell(PacketReader reader)
         std::vector<std::string> ret = ProcessCommand(name, message, s.map.characters[index].gameworld_id);
         for(unsigned int i = 0; i < ret.size(); ++i)
         {
-            EventProcessor::DelayMessage delay_message(ret[i], 1000);
+            DelayMessage delay_message(ret[i], 1000);
             delay_message.channel = 1;
             delay_message.victim_name = name;
             s.eprocessor.DelayedMessage(delay_message);
@@ -888,9 +834,9 @@ void Talk_Message(PacketReader reader)
     std::string name = reader.GetBreakString();
     std::string message = reader.GetBreakString();
 
-    S &s = S::GetInstance();
+    //S &s = S::GetInstance();
 
-	if(message[0] == '#' && name == s.config.GetValue("Master"))
+	/*if(message[0] == '#' && name == s.config.GetValue("Master"))
     {
         message.erase(0, 1);
 
@@ -904,5 +850,5 @@ void Talk_Message(PacketReader reader)
             delay_message.victim_name = name;
             s.eprocessor.DelayedMessage(delay_message);
         }
-    }
+    }*/
 }

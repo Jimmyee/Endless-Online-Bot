@@ -28,7 +28,55 @@ void INIT_INIT(PacketReader reader)
     }
     else
     {
-        puts("EOClient: init failed");
+        std::string reason = "Unknown";
+
+        switch(result)
+        {
+        case InitReply::OutOfDate:
+            reason = "OutOfDate";
+            break;
+
+        case InitReply::Banned:
+            reason = "Banned";
+            break;
+
+        case InitReply::Map:
+            reason = "Map";
+            break;
+
+        case InitReply::EIF:
+            reason = "EIF";
+            break;
+
+        case InitReply::ENF:
+            reason = "ENF";
+            break;
+
+        case InitReply::ESF:
+            reason = "ESF";
+            break;
+
+        case InitReply::Players:
+            reason = "Players";
+            break;
+
+        case InitReply::MapMutation:
+            reason = "MapMutation";
+            break;
+
+        case InitReply::FriendListPlayers:
+            reason = "FriendListPlayers";
+            break;
+
+        case InitReply::ECF:
+            reason = "ECF";
+            break;
+
+        default:
+            break;
+        }
+
+        printf("EOClient: init failed, reason: %s\n", reason.c_str());
         s.eoclient.Disconnect();
     }
 }
