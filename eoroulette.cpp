@@ -216,22 +216,31 @@ void EORoulette::Process()
         int elapsed = this->jackpot_clock.getElapsedTime().asSeconds();
         if(elapsed >= jackpot_time && !s.eprocessor.BlockingEvent())
         {
-            this->gameworld_id = -1;
-            this->gold_given = this->total_gold;
-            this->spins = 0;
-            this->max_spins = S::GetInstance().rand_gen.RandInt(12, 24);
-            this->max_spins += S::GetInstance().rand_gen.RandInt(0, 3);
-            this->spin_delay = 100;
-            this->play = true;
-            this->winner = -1;
-            this->clock.restart();
-            this->run = true;
-            this->jackpot = true;
-            this->payments = 0;
+            if(this->total_gold > 0)
+            {
+                this->gameworld_id = -1;
+                this->gold_given = this->total_gold;
+                this->spins = 0;
+                this->max_spins = S::GetInstance().rand_gen.RandInt(12, 24);
+                this->max_spins += S::GetInstance().rand_gen.RandInt(0, 3);
+                this->spin_delay = 100;
+                this->play = true;
+                this->winner = -1;
+                this->clock.restart();
+                this->run = true;
+                this->jackpot = true;
+                this->payments = 0;
 
-            this->jackpot_clock.restart();
+                this->jackpot_clock.restart();
 
-            s.eoclient.TalkPublic("Jackpot game started!");
+                s.eoclient.TalkPublic("Jackpot game started!");
+            }
+            else
+            {
+                this->jackpot_clock.restart();
+
+                s.eoclient.TalkPublic("The jackpot game was held: no gold in the bank.");
+            }
         }
         else if(elapsed >= jackpot_time - 180 && elapsed < jackpot_time - 10)
         {

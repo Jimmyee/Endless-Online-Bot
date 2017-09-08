@@ -400,6 +400,7 @@ class EIF
 		EIF_Data& Get(unsigned int id);
 		const EIF_Data& Get(unsigned int id) const;
         EIF_Data &GetByName(std::string name);
+        EIF_Data &GetByNameLowercase(std::string name);
 
 		unsigned int GetKey(int keynum) const;
 };

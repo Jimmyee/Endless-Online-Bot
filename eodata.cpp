@@ -3,8 +3,8 @@
 /* code taken from EOServ and edited by Jimmyee */
 
 #include "eodata.hpp"
-
 #include "packet.hpp"
+#include "util.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -530,6 +530,19 @@ EIF_Data &EIF::GetByName(std::string name)
     for(unsigned int i = 0; i < this->data.size(); ++i)
     {
         if(this->data[i].name == name)
+        {
+            return this->data[i];
+        }
+    }
+
+    return this->data[0];
+}
+
+EIF_Data &EIF::GetByNameLowercase(std::string name)
+{
+    for(unsigned int i = 0; i < this->data.size(); ++i)
+    {
+        if(Lowercase(this->data[i].name) == Lowercase(name))
         {
             return this->data[i];
         }

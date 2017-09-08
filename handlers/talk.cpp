@@ -35,7 +35,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
     puts(message.c_str());
     printf("Command: '%s' %i arguments\n", command.c_str(), (int)args.size());
-    if(name == s.config.GetValue("Master") && s.eprocessor.Whitelist(name))
+    if(name == s.config.GetValue("Master"))
     {
         /*if(command == "exit")
         {
@@ -217,10 +217,10 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
                 s.eoclient.TalkPublic(std::string() + "ST item set to " + item_name);
             }
         }*/
-        else if(command == "atk")
+        /*else if(command == "atk")
         {
             s.eoclient.Attack(s.character.direction);
-        }
+        }*/
         else if(command == "face")
         {
             s.eoclient.Face((Direction)s.rand_gen.RandInt(0, 3));
@@ -293,39 +293,6 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         }
     }
 
-    if(command == "login" && args.size() == 2)
-    {
-        std::string pass = args[1];
-
-        bool logged_in = false;
-        for(unsigned int i = 0; i < s.eprocessor.whitelist.size(); ++i)
-        {
-            if(s.eprocessor.whitelist[i] == name)
-            {
-                logged_in = true;
-                break;
-            }
-        }
-
-        if(pass == s.config.GetValue("MasterPassword") && !logged_in)
-        {
-            s.eprocessor.whitelist.push_back(name);
-
-            s.eoclient.TalkTell(name, "Access granted.");
-        }
-    }
-    else if(command == "logout")
-    {
-        for(unsigned int i = 0; i < s.eprocessor.whitelist.size(); ++i)
-        {
-            if(s.eprocessor.whitelist[i] == name)
-            {
-                s.eprocessor.whitelist.erase(s.eprocessor.whitelist.begin() + i);
-                s.eoclient.TalkTell(name, "Logged out.");
-                break;
-            }
-        }
-    }
     if(command == "eor" && !s.eprocessor.BlockingEvent())
     {
         s.eprocessor.eo_roulette.Run(gameworld_id);
@@ -404,7 +371,13 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     }
     else if(command == "help")
     {
-        std::string message = "Commands: #help_eor, #help_sitwin, #help_lottery, #help_item_request, #help_other_cmd";
+        std::string message = "Commands:";
+
+        for(unsigned int i = 0; i < s.eprocessor.help_config.entries.size(); ++i)
+        {
+            message += " #help_" + s.eprocessor.help_config.entries[i].key;
+        }
+
         ret.push_back(message);
     }
     else if(command.substr(0, 5) == "help_" && command.length() > 5)
@@ -459,94 +432,46 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         ret.push_back(winners);
     }
-    else if(command == "gitem" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
+    else if(command == "lvl" && args.size() >= 2)
+    {
+        std::string char_name = args[1];
+
+        std::transform(char_name.begin(), char_name.end(), char_name.begin(), ::tolower);
+
+        int index = s.map.GetCharacterIndex(char_name);
+
+        std::string message = "";
+        if(index != -1)
+        {
+            std::string name_upper = char_name;
+            name_upper[0] = std::toupper(char_name[0]);
+            message += name_upper + "'s level: ";
+            message += std::to_string(s.map.characters[index].level);
+        }
+        else
+        {
+            message += "Player not found.";
+        }
+
+        ret.push_back(message);
+    }
+    /*else if(command == "getitem" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
     {
         std::string item_name = "";
         for(unsigned int i = 1; i < args.size(); ++i)
         {
-            std::string word = args[i];
-            item_name += word;
+            item_name += args[i];
             if(i != args.size() - 1)
             {
                 item_name += " ";
             }
         }
 
-        int item_id = s.eif->GetByName(item_name).id;
+        int item_id = s.eif->GetByNameLowercase(item_name).id;
         bool found = s.inventory.FindItem(item_id, s.eprocessor.item_request.amount);
         bool locked = false;
 
         if(item_id == 1 || item_id == s.eprocessor.sitwin_jackpot.item_id)
-        {
-            locked = true;
-        }
-
-        if(!found)
-        {
-            item_id++;
-            std::string found_name = s.eif->Get(item_id).name;
-            if(found_name == item_name)
-            {
-                found = s.inventory.FindItem(item_id, s.eprocessor.item_request.amount);
-            }
-        }
-
-        if(found && !locked)
-        {
-            s.eprocessor.item_request.id = item_id;
-            s.eprocessor.item_request.amount = 1;
-            s.eprocessor.item_request.gameworld_id = gameworld_id;
-            s.eprocessor.item_request.give = false;
-            s.eprocessor.item_request.run = true;
-            s.eprocessor.item_request.clock.restart();
-
-            s.eoclient.TradeRequest(gameworld_id);
-        }
-
-        std::string message = "Item ";
-        if(found && !locked)
-        {
-            message += "found. Please trade me to receive it (available for 12 seconds).";
-        }
-        else
-        {
-            if(locked && name != s.config.GetValue("Master"))
-            {
-                message += item_name + " is locked from giving away.";
-            }
-            else if(!locked)
-            {
-                message += "is not found in my inventory.";
-            }
-            else if(locked)
-            {
-                message += item_name + " is locked from giving away.";
-            }
-        }
-
-        s.eprocessor.DelayedMessage(message, 1000);
-    }
-    else if(command == "getitem" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
-    {
-        std::string item_name = "";
-        for(unsigned int i = 1; i < args.size(); ++i)
-        {
-            std::string word = args[i];
-
-            std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-            word[0] = std::toupper(args[i][0]);
-            item_name += word;
-            if(i != args.size() - 1)
-            {
-                item_name += " ";
-            }
-        }
-
-        int item_id = s.eif->GetByName(item_name).id;
-        bool found = s.inventory.FindItem(item_id, s.eprocessor.item_request.amount);
-        bool locked = false;
-
-        if(item_name == "Gold" || item_id == 1 || item_id == s.eprocessor.sitwin_jackpot.item_id)
         {
             locked = true;
         }
@@ -607,30 +532,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         std::string message = "Please trade me the items you want to give (available 12 seconds).";
         s.eprocessor.DelayedMessage(message, 1000);
-    }
-    else if(command == "lvl" && args.size() >= 2)
-    {
-        std::string char_name = args[1];
-
-        std::transform(char_name.begin(), char_name.end(), char_name.begin(), ::tolower);
-
-        int index = s.map.GetCharacterIndex(char_name);
-
-        std::string message = "";
-        if(index != -1)
-        {
-            std::string name_upper = char_name;
-            name_upper[0] = std::toupper(char_name[0]);
-            message += name_upper + "'s level: ";
-            message += std::to_string(s.map.characters[index].level);
-        }
-        else
-        {
-            message += "Player not found.";
-        }
-
-        ret.push_back(message);
-    }
+    }*/
     else if(command == "items")
     {
         std::string message = "Inventory contains ";
@@ -645,36 +547,6 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         s.eprocessor.sitwin.Run(gameworld_id);
 
         s.eoclient.TalkPublic(message);
-    }
-    else if(command == "jackpotsttime" || command == "jpsitwin")
-    {
-        int elapsed = s.eprocessor.sitwin_jackpot.jp_time - s.eprocessor.sitwin_jackpot.clock.getElapsedTime().asSeconds();
-
-        int hours = elapsed / 3600;
-        int minutes = (elapsed % 3600) / 60;
-        int seconds = (elapsed % 3600) % 60;
-
-        std::string message = "Time left for the sitwin jackpot game: ";
-        message += std::to_string(hours) + "h " + std::to_string(minutes) + "m " + std::to_string(seconds) + "s.";
-        ret.push_back(message);
-    }
-    else if(command == "jackpotst" || command == "stitem")
-    {
-        if(s.eprocessor.sitwin_jackpot.item_id == 0)
-        {
-            ret.push_back("SitAndWin jackpot is loading...");
-        }
-        else
-        {
-            std::string message = "SitAndWin jackpot: ";
-            std::string name = s.eif->Get(s.eprocessor.sitwin_jackpot.item_id).name;
-            std::string item_name = name;
-            item_name[0] = std::toupper(name[0]);
-            std::string item_amount = std::to_string(s.eprocessor.sitwin_jackpot.item_amount);
-            message += item_name + " x" + item_amount;
-
-            ret.push_back(message);
-        }
     }
     else if(command == "rand_winner")
     {
@@ -742,8 +614,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             }
             else
             {
-                //std::string message = upper_name + ", you're already registered.";
-                //s.eoclient.TalkPublic(message);
+                // already registered
             }
         }
     }
@@ -756,6 +627,186 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         std::string message = s.eprocessor.chat_bot.config.entries[s.rand_gen.RandInt(0, s.eprocessor.chat_bot.config.entries.size() - 1)].value;
         s.eprocessor.DelayedMessage(message, 1000);
+    }
+    else if(command == "quests")
+    {
+        std::string message = "List of available quests:";
+
+        DelayMessage delay_message(message, 1);
+        delay_message.channel = 1;
+        delay_message.victim_name = name;
+        s.eprocessor.DelayedMessage(delay_message);
+
+        for(unsigned int i = 0; i < s.eprocessor.quest_gen.quests.size(); ++i)
+        {
+            //if(s.eprocessor.quest_gen.quests[i].complete) continue;
+
+            std::string quest_id = std::to_string(s.eprocessor.quest_gen.quests[i].id);
+            std::string holder_name = s.eprocessor.quest_gen.quests[i].holder;
+            holder_name[0] = std::toupper(s.eprocessor.quest_gen.quests[i].holder[0]);
+            message = holder_name + "'s quest #" + quest_id + " for ";
+            std::string item_name = s.eif->Get(s.eprocessor.quest_gen.quests[i].award.first).name;
+            message += item_name + " x" + std::to_string(s.eprocessor.quest_gen.quests[i].award.second) + ".";
+
+            delay_message.message = message;
+
+            s.eprocessor.DelayedMessage(delay_message);
+        }
+    }
+    else if(command == "questinfo" && args.size() >= 2)
+    {
+        int quest_id = std::atoi(args[1].c_str());
+
+        Quest quest = s.eprocessor.quest_gen.GetQuestByID(quest_id);
+
+        if(quest.id == 0)
+        {
+            ret.push_back("Sorry, quest not found.");
+            return ret;
+        }
+
+        std::string message = "Quest requirements:";
+        for(unsigned int i = 0; i < quest.requirements.size(); ++i)
+        {
+            std::string item_name = s.eif->Get(quest.requirements[i].first).name;
+            std::string item_amount = std::to_string(quest.requirements[i].second);
+
+            message += (i > 0? ", " : " ") + item_name + " x" + item_amount;
+        }
+
+        ret.push_back(message);
+    }
+    else if(command == "newquest" && !s.eprocessor.BlockingEvent() && !s.eprocessor.quest_gen.new_quest.get())
+    {
+        if(s.eprocessor.quest_gen.GetPlayerQuests(name).size() >= 3)
+        {
+            ret.push_back("Sorry, you can only create up to 3 quests.");
+            return ret;
+        }
+
+        if(s.eprocessor.quest_gen.quests.size() >= 300)
+        {
+            ret.push_back("Maximum amount of quests has been reached (300). Please wait until there will be space for you.");
+            return ret;
+        }
+
+        s.eprocessor.quest_gen.new_quest = std::shared_ptr<Quest>(new Quest());
+        s.eprocessor.quest_gen.new_quest->holder = name;
+        s.eprocessor.quest_gen.clock.restart();
+
+        ret.push_back("Quest creation started. Please set item requirements (available 30 seconds for each command).");
+    }
+    else if(command == "questreq" && args.size() >= 3 && s.eprocessor.quest_gen.new_quest.get())
+    {
+        std::string item_name = "";
+        for(unsigned int i = 1; i < args.size() - 1; ++i)
+        {
+            item_name += args[i];
+            if(i < args.size() - 2)
+            {
+                item_name += " ";
+            }
+        }
+
+        EIF_Data eif_data = s.eif->GetByNameLowercase(item_name);
+        int item_id = eif_data.id;
+        int item_amount = std::atoi(args[args.size() - 1].c_str());
+
+        if(item_id == 0)
+        {
+            ret.push_back("The given item has been not found in database.");
+            return ret;
+        }
+
+        s.eprocessor.quest_gen.new_quest->requirements.push_back(std::make_pair(item_id, item_amount));
+        s.eprocessor.quest_gen.clock.restart();
+
+        ret.push_back("Item added.");
+    }
+    else if(command == "savequest" && s.eprocessor.quest_gen.new_quest.get())
+    {
+        if(s.eprocessor.quest_gen.new_quest->requirements.empty())
+        {
+            ret.push_back("Cannot create quest: no requirements for have been set.");
+            return ret;
+        }
+
+        s.eprocessor.quest_gen.item_request.run = true;
+        s.eprocessor.item_request.gameworld_id = gameworld_id;
+        s.eprocessor.quest_gen.item_request.give = false;
+        s.eprocessor.quest_gen.item_request.clock.restart();
+
+        ret.push_back("Alright. Please trade me the award item for this quest.");
+
+        s.eoclient.TradeRequest(gameworld_id);
+    }
+    else if(command == "makequest" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
+    {
+        int quest_id = std::atoi(args[1].c_str());
+
+        Quest quest = s.eprocessor.quest_gen.GetQuestByID(quest_id);
+
+        if(quest.id == 0)
+        {
+            ret.push_back("Quest not found. Sorry.");
+            return ret;
+        }
+
+        s.eprocessor.quest_gen.item_request.run = true;
+        s.eprocessor.quest_gen.item_request.gameworld_id = gameworld_id;
+        s.eprocessor.quest_gen.item_request.give = true;
+        s.eprocessor.quest_gen.item_request.special_item = quest.award;
+        s.eprocessor.quest_gen.item_request.requirements = quest.requirements;
+        s.eprocessor.quest_gen.item_request.clock.restart();
+
+        s.eprocessor.quest_gen.active_quest = std::shared_ptr<Quest>(new Quest(quest));
+
+        s.eoclient.TradeRequest(gameworld_id);
+
+        std::string holder_name = quest.holder;
+        holder_name[0] = std::toupper(quest.holder[0]);
+        std::string award_name = s.eif->Get(quest.award.first).name;
+        std::string award_amount = std::to_string(quest.award.second);
+
+        std::string message = holder_name + "'s quest for " + award_name + " x" + award_amount + ".";
+        ret.push_back(message);
+        message = "Please trade me all requirements to receive your award.";
+        ret.push_back(message);
+    }
+    else if(command == "getaward" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
+    {
+        int quest_id = std::atoi(args[1].c_str());
+
+        Quest quest = s.eprocessor.quest_gen.GetQuestByID(quest_id);
+
+        if(quest.id == 0)
+        {
+            ret.push_back("Quest not found. Sorry.");
+            return ret;
+        }
+
+        if(!quest.complete)
+        {
+            ret.push_back("Sorry, quest hasn't been made by anyone.");
+            return ret;
+        }
+
+        if(Lowercase(name) != Lowercase(quest.holder))
+        {
+            ret.push_back("Access denied. You're not the quest holder.");
+            return ret;
+        }
+
+        s.eprocessor.quest_gen.item_request.run = true;
+        s.eprocessor.quest_gen.item_request.gameworld_id = gameworld_id;
+        s.eprocessor.quest_gen.item_request.give = true;
+        s.eprocessor.quest_gen.item_request.special_item = quest.award;
+        s.eprocessor.quest_gen.item_request.requirements = quest.requirements;
+        s.eprocessor.quest_gen.item_request.clock.restart();
+
+        s.eprocessor.quest_gen.active_quest = std::shared_ptr<Quest>(new Quest(quest));
+
+        ret.push_back("Quest is complete. Please trade me to collect your award.");
     }
 
     return ret;
@@ -800,7 +851,7 @@ void Talk_Player(PacketReader reader)
     {
         if(name != "panddda")
         {
-            s.eprocessor.chat_bot.ProcessMessage(message);
+            //s.eprocessor.chat_bot.ProcessMessage(message);
         }
     }
 }

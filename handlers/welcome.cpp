@@ -135,8 +135,6 @@ void Welcome_Reply(PacketReader reader)
         }
         reader.GetByte(); // 255
 
-        s.eprocessor.sitwin_jackpot.GenerateItem();
-
         while(reader.PeekByte() != 255)
         {
             reader.GetShort(); // spell id

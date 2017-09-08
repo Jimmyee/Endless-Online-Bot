@@ -2,6 +2,8 @@
 
 #include "util.hpp"
 
+#include <algorithm>
+
 int path_length(int x1, int y1, int x2, int y2)
 {
 	int dx = std::abs(x1 - x2);
@@ -29,4 +31,13 @@ std::vector<std::string> Args(std::string str)
     }
 
     return args;
+}
+
+std::string Lowercase(std::string str)
+{
+    std::string ret = str;
+
+    std::transform(ret.begin(), ret.end(), ret.begin(), ::tolower);
+
+    return ret;
 }

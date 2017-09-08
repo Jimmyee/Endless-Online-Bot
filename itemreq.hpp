@@ -2,6 +2,7 @@
 #define ITEMREQ_HPP_INCLUDED
 
 #include <SFML/System.hpp>
+#include <vector>
 
 struct ItemRequest
 {
@@ -11,8 +12,11 @@ struct ItemRequest
     short gameworld_id;
     bool give;
     sf::Clock clock;
+    std::pair<short, int> special_item;
+    std::vector<std::pair<short, int>> requirements;
 
-    ItemRequest() { this->run = false; id = 0; this->amount = 1; this->gameworld_id = 0; this->give = true; this->clock.restart(); }
+    ItemRequest();
+    bool MeetsRequirements(std::vector<std::pair<short, int>> victim_items);
 };
 
 #endif // ITEMREQ_HPP_INCLUDED

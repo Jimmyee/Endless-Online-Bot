@@ -10,6 +10,7 @@
 #include "itemreq.hpp"
 #include "sitwin.hpp"
 #include "lottery.hpp"
+#include "questgen.hpp"
 
 #include <SFML/System.hpp>
 #include <vector>
@@ -50,10 +51,9 @@ struct EventProcessor
     sf::Clock refresh_clock;
     ItemRequest item_request;
     SitWin sitwin;
-    SitWinJackpot sitwin_jackpot;
     Lottery lottery;
-    std::vector<std::string> whitelist;
     Config help_config;
+    QuestGenerator quest_gen;
 
     EventProcessor();
 
@@ -61,7 +61,6 @@ struct EventProcessor
     void DelayedMessage(std::string message, int time_ms = 0);
     void DelayedMessage(DelayMessage delay_message);
     bool BlockingEvent();
-    bool Whitelist(std::string name);
 };
 
 #endif // EVENTPROCESSOR_HPP_INCLUDED

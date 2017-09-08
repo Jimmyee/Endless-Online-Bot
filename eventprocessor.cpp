@@ -34,9 +34,7 @@ void EventProcessor::Process()
             {
                 this->trade.reset();
 
-                PacketBuilder packet(PacketFamily::Trade, PacketAction::Close);
-                packet.AddChar(138);
-                s.eoclient.Send(packet);
+                s.eoclient.TradeClose();
             }
 
             this->DelayedMessage("Trade canceled due to player inactivity.", 1000);
@@ -44,11 +42,11 @@ void EventProcessor::Process()
     }
 
     this->sitwin.Process();
-    this->sitwin_jackpot.Process();
 
     this->chat_bot.Process();
     if(s.config.GetValue("ChaseBot") == "yes") this->chase_bot.Process();
     this->lottery.Process();
+    this->quest_gen.Process();
 
     if(this->help_message_clock.getElapsedTime().asSeconds() > 14400)
     {
@@ -133,22 +131,10 @@ void EventProcessor::DelayedMessage(DelayMessage delay_message)
 
 bool EventProcessor::BlockingEvent()
 {
-    if(this->trade.get() || this->eo_roulette.run || this->item_request.run || this->sitwin.run || this->lottery.run)
+    if(this->trade.get() || this->eo_roulette.run || this->item_request.run || this->sitwin.run || this->lottery.run
+       || this->quest_gen.new_quest.get() || this->quest_gen.item_request.run)
     {
         return true;
-    }
-
-    return false;
-}
-
-bool EventProcessor::Whitelist(std::string name)
-{
-    for(unsigned int i = 0; i < this->whitelist.size(); ++i)
-    {
-        if(this->whitelist[i] == name)
-        {
-            return true;
-        }
     }
 
     return false;
