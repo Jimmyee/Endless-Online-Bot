@@ -11,6 +11,7 @@
 #include "sitwin.hpp"
 #include "lottery.hpp"
 #include "questgen.hpp"
+#include "market.hpp"
 
 #include <SFML/System.hpp>
 #include <vector>
@@ -54,6 +55,7 @@ struct EventProcessor
     Lottery lottery;
     Config help_config;
     QuestGenerator quest_gen;
+    Market market;
 
     EventProcessor();
 

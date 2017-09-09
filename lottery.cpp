@@ -73,7 +73,7 @@ void Lottery::Process()
             if(this->tickets.size() == 1) jackpot_percentage = 0;
             this->award = gold;
             this->award -= jackpot_percentage;
-            s.eprocessor.eo_roulette.total_gold += jackpot_percentage / 2;
+            s.eprocessor.eo_roulette.total_gold += jackpot_percentage;
 
             std::string message = "The winning number is: " + std::to_string(winning_number) + ".";
             s.eprocessor.DelayedMessage(DelayMessage(message, 2000));

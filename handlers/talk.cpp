@@ -639,12 +639,12 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         for(unsigned int i = 0; i < s.eprocessor.quest_gen.quests.size(); ++i)
         {
-            //if(s.eprocessor.quest_gen.quests[i].complete) continue;
+            if(s.eprocessor.quest_gen.quests[i].complete) continue;
 
             std::string quest_id = std::to_string(s.eprocessor.quest_gen.quests[i].id);
             std::string holder_name = s.eprocessor.quest_gen.quests[i].holder;
             holder_name[0] = std::toupper(s.eprocessor.quest_gen.quests[i].holder[0]);
-            message = holder_name + "'s quest #" + quest_id + " for ";
+            message = "#" + quest_id + " " + holder_name + "'s quest for ";
             std::string item_name = s.eif->Get(s.eprocessor.quest_gen.quests[i].award.first).name;
             message += item_name + " x" + std::to_string(s.eprocessor.quest_gen.quests[i].award.second) + ".";
 
@@ -657,7 +657,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     {
         int quest_id = std::atoi(args[1].c_str());
 
-        Quest quest = s.eprocessor.quest_gen.GetQuestByID(quest_id);
+        Quest quest = s.eprocessor.quest_gen.GetQuest(quest_id);
 
         if(quest.id == 0)
         {
@@ -665,7 +665,18 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             return ret;
         }
 
-        std::string message = "Quest requirements:";
+        if(quest.complete && quest.holder != name)
+        {
+            ret.push_back("This quest is already complete.");
+            return ret;
+        }
+
+        std::string message = "";
+        if(quest.complete && quest.holder == name)
+        {
+            message += "(COMPLETE) ";
+        }
+        message += "Quest requirements:";
         for(unsigned int i = 0; i < quest.requirements.size(); ++i)
         {
             std::string item_name = s.eif->Get(quest.requirements[i].first).name;
@@ -676,7 +687,35 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         ret.push_back(message);
     }
-    else if(command == "newquest" && !s.eprocessor.BlockingEvent() && !s.eprocessor.quest_gen.new_quest.get())
+    else if(command == "myquests")
+    {
+        std::vector<Quest> quests = s.eprocessor.quest_gen.GetPlayerQuests(name);
+
+        std::string message = "Quests created by you:";
+
+        DelayMessage delay_message(message, 1);
+        delay_message.channel = 1;
+        delay_message.victim_name = name;
+        s.eprocessor.DelayedMessage(delay_message);
+
+        for(unsigned int i = 0; i < quests.size(); ++i)
+        {
+            message = "";
+            if(quests[i].complete)
+            {
+                message = "(COMPLETE) ";
+            }
+            std::string quest_id = std::to_string(quests[i].id);
+            message += "#" + quest_id + " for ";
+            std::string item_name = s.eif->Get(quests[i].award.first).name;
+            message += item_name + " x" + std::to_string(quests[i].award.second) + ".";
+
+            delay_message.message = message;
+
+            s.eprocessor.DelayedMessage(delay_message);
+        }
+    }
+    else if(command == "newquest" && !s.eprocessor.BlockingEvent())
     {
         if(s.eprocessor.quest_gen.GetPlayerQuests(name).size() >= 3)
         {
@@ -714,7 +753,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         if(item_id == 0)
         {
-            ret.push_back("The given item has been not found in database.");
+            ret.push_back("The given item has not been found in database.");
             return ret;
         }
 
@@ -744,7 +783,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     {
         int quest_id = std::atoi(args[1].c_str());
 
-        Quest quest = s.eprocessor.quest_gen.GetQuestByID(quest_id);
+        Quest quest = s.eprocessor.quest_gen.GetQuest(quest_id);
 
         if(quest.id == 0)
         {
@@ -777,7 +816,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     {
         int quest_id = std::atoi(args[1].c_str());
 
-        Quest quest = s.eprocessor.quest_gen.GetQuestByID(quest_id);
+        Quest quest = s.eprocessor.quest_gen.GetQuest(quest_id);
 
         if(quest.id == 0)
         {
@@ -806,7 +845,251 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         s.eprocessor.quest_gen.active_quest = std::shared_ptr<Quest>(new Quest(quest));
 
+        s.eoclient.TradeRequest(gameworld_id);
+
         ret.push_back("Quest is complete. Please trade me to collect your award.");
+    }
+    else if(command == "offers")
+    {
+        std::string message = "Active offers:";
+
+        DelayMessage delay_message(message, 1);
+        delay_message.channel = 1;
+        delay_message.victim_name = name;
+        s.eprocessor.DelayedMessage(delay_message);
+
+        for(unsigned int i = 0; i < s.eprocessor.market.offers.size(); ++i)
+        {
+            if(s.eprocessor.market.offers[i].transaction_done) continue;
+
+            std::string offer_id = std::to_string(s.eprocessor.market.offers[i].id);
+            std::string transaction_type = s.eprocessor.market.offers[i].transaction_type == 0? "BUY" : "SELL";
+            std::string item_name = s.eif->Get(s.eprocessor.market.offers[i].item.first).name;
+            std::string item_amount = std::to_string(s.eprocessor.market.offers[i].item.second);
+
+            delay_message.message = "#" + offer_id + ": " + transaction_type + " -> " + item_name + " x" + item_amount;
+            delay_message.message += " for " + std::to_string(s.eprocessor.market.offers[i].price) + " gold.";
+            s.eprocessor.DelayedMessage(delay_message);
+        }
+    }
+    else if(command == "offerinfo" && args.size() >= 2)
+    {
+        int offer_id = std::atoi(args[1].c_str());
+
+        Market::Offer offer = s.eprocessor.market.GetOffer(offer_id);
+
+        if(offer.id == 0)
+        {
+            ret.push_back("Offer not found.");
+            return ret;
+        }
+
+        std::string offerid = std::to_string(offer.id);
+        std::string transaction_type = offer.transaction_type == 0? "BUY" : "SELL";
+        std::string item_name = s.eif->Get(offer.item.first).name;
+        std::string item_amount = std::to_string(offer.item.second);
+
+        DelayMessage delay_message("", 1);
+        delay_message.channel = 1;
+        delay_message.victim_name = name;
+        if(offer.transaction_done && offer.player_name == name)
+        {
+            delay_message.message = "(COMPLETE) ";
+        }
+        delay_message.message += "#" + offerid + ": " + transaction_type + " -> " + item_name + " x" + item_amount;
+        delay_message.message += " for " + std::to_string(offer.price) + " gold.";
+        s.eprocessor.DelayedMessage(delay_message);
+    }
+    else if(command == "myoffers")
+    {
+        std::vector<Market::Offer> offers = s.eprocessor.market.GetPlayerOffers(name);
+
+        std::string message = "Your offers:";
+
+        DelayMessage delay_message(message, 1);
+        delay_message.channel = 1;
+        delay_message.victim_name = name;
+        s.eprocessor.DelayedMessage(delay_message);
+
+        for(unsigned int i = 0; i < offers.size(); ++i)
+        {
+            std::string offer_id = std::to_string(offers[i].id);
+            std::string transaction_type = offers[i].transaction_type == 0? "BUY" : "SELL";
+            std::string item_name = s.eif->Get(offers[i].item.first).name;
+            std::string item_amount = std::to_string(offers[i].item.second);
+
+            delay_message.message = "";
+            if(offers[i].transaction_done && offers[i].player_name == name)
+            {
+                delay_message.message = "(COMPLETE) ";
+            }
+
+            delay_message.message += "#" + offer_id + ": " + transaction_type + " -> " + item_name + " x" + item_amount;
+            delay_message.message += " for " + std::to_string(offers[i].price) + " gold.";
+            s.eprocessor.DelayedMessage(delay_message);
+        }
+    }
+    if(command == "buyoffer" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
+    {
+        if(s.eprocessor.market.GetPlayerOffers(name).size() >= 3)
+        {
+            ret.push_back("Nope. You can create up to 3 offers at the same time.");
+            return ret;
+        }
+
+        if(s.eprocessor.market.offers.size() >= 300)
+        {
+            ret.push_back("Maximum offers amount has been reached (300). Please wait for free space.");
+            return ret;
+        }
+
+        std::string item_name = "";
+        for(unsigned int i = 1; i < args.size() - 1; ++i)
+        {
+            item_name += args[i];
+            if(i < args.size() - 2)
+            {
+                item_name += " ";
+            }
+        }
+
+        EIF_Data eif_data = s.eif->GetByNameLowercase(item_name);
+        int item_id = eif_data.id;
+        int item_amount = std::atoi(args[args.size() - 1].c_str());
+
+        if(item_id == 0)
+        {
+            ret.push_back("The given item has not been found in database.");
+            return ret;
+        }
+
+        s.eprocessor.market.item_request.run = true;
+        s.eprocessor.item_request.gameworld_id = gameworld_id;
+        s.eprocessor.market.item_request.give = false;
+        s.eprocessor.market.item_request.clock.restart();
+
+        s.eprocessor.market.new_offer = std::shared_ptr<Market::Offer>(new Market::Offer());
+        s.eprocessor.market.new_offer->transaction_type = 0;
+        s.eprocessor.market.new_offer->item = std::make_pair(item_id, item_amount);
+
+        s.eoclient.TradeRequest(gameworld_id);
+
+        ret.push_back("Please trade me the gold you offer for that item (1 gold will be taken).");
+    }
+    else if(command == "selloffer" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
+    {
+        if(s.eprocessor.market.GetPlayerOffers(name).size() >= 3)
+        {
+            ret.push_back("Nope. You can create up to 3 offers at the same time.");
+            return ret;
+        }
+
+        if(s.eprocessor.market.offers.size() >= 300)
+        {
+            ret.push_back("Maximum offers amount has been reached (300). Please wait for free space.");
+            return ret;
+        }
+
+        int gold_amount = std::atoi(args[1].c_str());
+
+        s.eprocessor.market.item_request.run = true;
+        s.eprocessor.item_request.gameworld_id = gameworld_id;
+        s.eprocessor.market.item_request.give = false;
+        s.eprocessor.market.item_request.clock.restart();
+
+        s.eprocessor.market.new_offer = std::shared_ptr<Market::Offer>(new Market::Offer());
+        s.eprocessor.market.new_offer->transaction_type = 1;
+        s.eprocessor.market.new_offer->price = gold_amount;
+
+        s.eoclient.TradeRequest(gameworld_id);
+
+        ret.push_back("Please trade me the item you offer to sell.");
+    }
+    else if(command == "maketrade" && args.size() >= 2)
+    {
+        int offer_id = std::atoi(args[1].c_str());
+
+        Market::Offer offer = s.eprocessor.market.GetOffer(offer_id);
+
+        if(offer.id == 0)
+        {
+            ret.push_back("Offer not found.");
+            return ret;
+        }
+
+        s.eprocessor.market.active_offer = std::shared_ptr<Market::Offer>(new Market::Offer(offer));
+
+        s.eprocessor.market.item_request.run = true;
+        s.eprocessor.item_request.gameworld_id = gameworld_id;
+        s.eprocessor.market.item_request.give = false;
+        if(offer.transaction_type == 0)
+        {
+            s.eprocessor.market.item_request.requirements.push_back(offer.item);
+        }
+        else
+        {
+            s.eprocessor.market.item_request.special_item = offer.item;
+            s.eprocessor.market.item_request.requirements.push_back(std::make_pair(1, offer.price));
+        }
+        s.eprocessor.market.item_request.clock.restart();
+
+        s.eoclient.TradeRequest(gameworld_id);
+
+        std::string item_name = s.eif->Get(s.eprocessor.market.item_request.requirements[0].first).name;
+        std::string item_amount = std::to_string(s.eprocessor.market.item_request.requirements[0].second);
+
+        ret.push_back(std::string() + "Please trade me " + item_name + " x" + item_amount + " to complete transaction.");
+    }
+    else if(command == "collect" && args.size() >= 2 && !s.eprocessor.BlockingEvent())
+    {
+        int offer_id = std::atoi(args[1].c_str());
+
+        Market::Offer offer = s.eprocessor.market.GetOffer(offer_id);
+
+        if(offer.id == 0)
+        {
+            ret.push_back("Offer not found.");
+            return ret;
+        }
+
+        if(offer.player_name != name)
+        {
+            ret.push_back("This offer is not yours.");
+            return ret;
+        }
+
+        s.eprocessor.market.active_offer = std::shared_ptr<Market::Offer>(new Market::Offer(offer));
+
+        s.eprocessor.market.item_request.run = true;
+        s.eprocessor.item_request.gameworld_id = gameworld_id;
+        s.eprocessor.market.item_request.give = true;
+        if(offer.transaction_type == 0)
+        {
+            if(offer.transaction_done)
+            {
+                s.eprocessor.market.item_request.special_item = offer.item;
+            }
+            else
+            {
+                s.eprocessor.market.item_request.special_item = std::make_pair(1, offer.price);
+            }
+        }
+        else
+        {
+            if(offer.transaction_done)
+            {
+                s.eprocessor.market.item_request.special_item = std::make_pair(1, offer.price);
+            }
+            else
+            {
+                s.eprocessor.market.item_request.special_item = offer.item;
+            }
+        }
+        s.eprocessor.market.item_request.clock.restart();
+
+        s.eoclient.TradeRequest(gameworld_id);
+
+        ret.push_back("Please trade me to collect your items.");
     }
 
     return ret;

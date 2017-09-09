@@ -29,9 +29,10 @@ struct QuestGenerator
     QuestGenerator();
     ~QuestGenerator();
     std::vector<Quest> GetPlayerQuests(std::string holder);
-    Quest GetQuest(std::string holder, short award_id);
-    Quest GetQuestByID(int id);
+    Quest GetQuest(int id);
     void RemoveQuest(int id);
+    int GenerateID();
+    void UpdateQuest(int id, Quest quest);
     void Process();
     void Save();
 };

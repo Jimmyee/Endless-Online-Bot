@@ -144,7 +144,7 @@ void EORoulette::Process()
                     int jackpot_percentage = this->gold_given / 20;
                     if(this->jackpot || (this->payments == 1 && this->winner == this->gameworld_id)) jackpot_percentage = 0;
                     this->gold_given -= jackpot_percentage;
-                    this->total_gold += jackpot_percentage / 2;
+                    this->total_gold += jackpot_percentage;
 
                     if(alternative_winner)
                     {

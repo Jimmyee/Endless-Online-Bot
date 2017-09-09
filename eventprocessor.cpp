@@ -47,9 +47,11 @@ void EventProcessor::Process()
     if(s.config.GetValue("ChaseBot") == "yes") this->chase_bot.Process();
     this->lottery.Process();
     this->quest_gen.Process();
+    this->market.Process();
 
-    if(this->help_message_clock.getElapsedTime().asSeconds() > 14400)
+    if(this->help_message_clock.getElapsedTime().asSeconds() > 1800)
     {
+        this->DelayedMessage(this->help_config.GetValue("changes"), 0);
         this->help_message_clock.restart();
     }
 
@@ -132,7 +134,8 @@ void EventProcessor::DelayedMessage(DelayMessage delay_message)
 bool EventProcessor::BlockingEvent()
 {
     if(this->trade.get() || this->eo_roulette.run || this->item_request.run || this->sitwin.run || this->lottery.run
-       || this->quest_gen.new_quest.get() || this->quest_gen.item_request.run)
+       || this->quest_gen.new_quest.get() || this->quest_gen.item_request.run || this->market.new_offer.get()
+       || this->market.item_request.run)
     {
         return true;
     }

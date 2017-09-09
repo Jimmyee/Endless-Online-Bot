@@ -107,6 +107,13 @@ void Trade_Request(PacketReader reader)
             s.eoclient.TradeAccept(gameworld_id);
         }
     }
+    else if(s.eprocessor.market.item_request.run)
+    {
+        if(gameworld_id == s.eprocessor.market.item_request.gameworld_id)
+        {
+            s.eoclient.TradeAccept(gameworld_id);
+        }
+    }
 }
 
 void Trade_Open(PacketReader reader)
@@ -121,7 +128,7 @@ void Trade_Open(PacketReader reader)
     s.eprocessor.trade = std::shared_ptr<Trade>(new Trade(gameworld_id));
 
     if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.lottery.run
-       && !s.eprocessor.quest_gen.item_request.run)
+       && !s.eprocessor.quest_gen.item_request.run && !s.eprocessor.market.item_request.run)
     {
         s.eoclient.TradeClose();
         return;
@@ -207,6 +214,19 @@ void Trade_Open(PacketReader reader)
             }
         }
     }
+    else if(s.eprocessor.market.item_request.run)
+    {
+        if(s.eprocessor.market.new_offer.get())
+        {
+            s.eoclient.TradeAdd(1, 1);
+        }
+        else
+        {
+            short id = s.eprocessor.market.item_request.special_item.first;
+            int amount = s.eprocessor.market.item_request.special_item.second;
+            s.eoclient.TradeAdd(id, amount);
+        }
+    }
 
     s.eoclient.TalkPublic("Trading...");
 }
@@ -271,7 +291,8 @@ void Trade_Reply(PacketReader reader) // update of trade items
     reader.GetByte(); // 255
 
     if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run
-       && !s.eprocessor.sitwin.run && !s.eprocessor.lottery.run && !s.eprocessor.quest_gen.item_request.run)
+       && !s.eprocessor.sitwin.run && !s.eprocessor.lottery.run && !s.eprocessor.quest_gen.item_request.run
+       && !s.eprocessor.market.item_request.run)
     {
         s.eoclient.TradeClose();
         return;
@@ -280,7 +301,8 @@ void Trade_Reply(PacketReader reader) // update of trade items
     bool player_put_item = false;
     bool victim_put_item = false;
 
-    if(s.eprocessor.eo_roulette.run || s.eprocessor.sitwin.run || s.eprocessor.lottery.run || s.eprocessor.quest_gen.item_request.run)
+    if(s.eprocessor.eo_roulette.run || s.eprocessor.sitwin.run || s.eprocessor.lottery.run
+       || s.eprocessor.quest_gen.item_request.run || s.eprocessor.market.item_request.run)
     {
         for(unsigned int i = 0; i < s.eprocessor.trade->victim_items.size(); ++i)
         {
@@ -326,6 +348,32 @@ void Trade_Reply(PacketReader reader) // update of trade items
             {
                 victim_put_item = true;
             }
+            else if(s.eprocessor.market.item_request.run)
+            {
+                if(s.eprocessor.market.new_offer.get())
+                {
+                    if(s.eprocessor.market.new_offer->transaction_type == 0)
+                    {
+                        if(id == 1 && amount >= 2)
+                        {
+                            s.eprocessor.market.new_offer->price = amount - 1;
+                            victim_put_item = true;
+                        }
+                    }
+                    else if(s.eprocessor.market.new_offer->transaction_type == 1)
+                    {
+                        s.eprocessor.market.new_offer->item = std::make_pair(id, amount);
+                        victim_put_item = true;
+                    }
+                }
+                else
+                {
+                    if(s.eprocessor.market.item_request.give)
+                    {
+                        victim_put_item = true;
+                    }
+                }
+            }
         }
 
         for(unsigned int i = 0; i < s.eprocessor.trade->player_items.size(); ++i)
@@ -355,16 +403,20 @@ void Trade_Reply(PacketReader reader) // update of trade items
             {
                 player_put_item = true;
             }
+            else if(s.eprocessor.market.item_request.run)
+            {
+                player_put_item = true;
+            }
         }
     }
     if(s.eprocessor.quest_gen.item_request.run)
     {
         if(s.eprocessor.quest_gen.new_quest.get())
         {
-            /*if(s.eprocessor.quest_gen.item_request.MeetsRequirements(s.eprocessor.trade->victim_items))
+            if(player_put_item && victim_put_item)
             {
                 s.eoclient.TradeAgree();
-            }*/
+            }
         }
         else
         {
@@ -383,6 +435,33 @@ void Trade_Reply(PacketReader reader) // update of trade items
                     {
                         s.eoclient.TradeAgree();
                     }
+                }
+            }
+        }
+    }
+    if(s.eprocessor.market.item_request.run)
+    {
+        if(s.eprocessor.market.new_offer.get())
+        {
+            if(player_put_item && victim_put_item)
+            {
+                s.eoclient.TradeAgree();
+            }
+        }
+        else
+        {
+            if(s.eprocessor.market.item_request.give)
+            {
+                if(player_put_item && victim_put_item)
+                {
+                    s.eoclient.TradeAgree();
+                }
+            }
+            else
+            {
+                if(s.eprocessor.market.item_request.MeetsRequirements(s.eprocessor.trade->victim_items))
+                {
+                    s.eoclient.TradeAgree();
                 }
             }
         }
@@ -411,12 +490,6 @@ void Trade_Agree(PacketReader reader) // trade agree status update
     s.eprocessor.trade->victim_accepted = agree;
 
     if(s.eprocessor.item_request.run && s.eprocessor.trade->victim_items.size() > 0)
-    {
-        s.eoclient.TradeAgree();
-    }
-
-    if(s.eprocessor.quest_gen.new_quest.get() && s.eprocessor.quest_gen.item_request.run
-       && s.eprocessor.trade->victim_items.size() > 0)
     {
         s.eoclient.TradeAgree();
     }
@@ -590,7 +663,7 @@ void Trade_Use(PacketReader reader) // trade finished
 
         if(s.eprocessor.quest_gen.new_quest.get())
         {
-            s.eprocessor.quest_gen.new_quest->id = s.eprocessor.quest_gen.quests.size() + 1;
+            s.eprocessor.quest_gen.new_quest->id = s.eprocessor.quest_gen.GenerateID();
             s.eprocessor.quest_gen.new_quest->award = s.eprocessor.trade->victim_items[0];
 
             s.eprocessor.quest_gen.quests.push_back(*s.eprocessor.quest_gen.new_quest.get());
@@ -608,7 +681,8 @@ void Trade_Use(PacketReader reader) // trade finished
         {
             if(!s.eprocessor.quest_gen.active_quest->complete)
             {
-                s.eprocessor.quest_gen.quests[s.eprocessor.quest_gen.active_quest->id - 1].complete = true;
+                s.eprocessor.quest_gen.active_quest->complete = true;
+                s.eprocessor.quest_gen.UpdateQuest(s.eprocessor.quest_gen.active_quest->id, *s.eprocessor.quest_gen.active_quest.get());
                 s.eprocessor.quest_gen.active_quest.reset();
                 s.eprocessor.quest_gen.Save();
 
@@ -632,6 +706,57 @@ void Trade_Use(PacketReader reader) // trade finished
                 std::string name = s.map.characters[i].name;
                 name[0] = std::toupper(s.map.characters[i].name[0]);
                 std::string message = "Congratulations " + name + "!";
+                s.eprocessor.DelayedMessage(message, 1000);
+            }
+        }
+    }
+    else if(s.eprocessor.market.item_request.run)
+    {
+        s.eprocessor.market.item_request.run = false;
+
+        if(s.eprocessor.market.new_offer.get())
+        {
+            int i = s.map.GetCharacterIndex(victim_gameworld_id);
+            std::string name = s.map.characters[i].name;
+
+            s.eprocessor.market.new_offer->id = s.eprocessor.market.GenerateID();
+            s.eprocessor.market.new_offer->player_name = name;
+            s.eprocessor.market.offers.push_back(*s.eprocessor.market.new_offer.get());
+            s.eprocessor.market.Save();
+
+            std::string transaction_type = s.eprocessor.market.new_offer->transaction_type == 0? "BUY" : "SELL";
+            std::string message = "Your offer has been saved (" + transaction_type + "->";
+            std::string item_name =  s.eif->Get(s.eprocessor.market.new_offer->item.first).name;
+            std::string item_amount = std::to_string(s.eprocessor.market.new_offer->item.second);
+            message += item_name + " x" + item_amount;
+            message += " for " + std::to_string(s.eprocessor.market.new_offer->price) + " gold).";
+            s.eprocessor.market.new_offer.reset();
+
+            s.eprocessor.DelayedMessage(message, 1000);
+        }
+        else
+        {
+            if(s.eprocessor.market.item_request.give)
+            {
+                s.eprocessor.market.RemoveOffer(s.eprocessor.market.active_offer->id);
+                s.eprocessor.market.active_offer.reset();
+                s.eprocessor.market.Save();
+
+                s.eprocessor.DelayedMessage("Offer has been successfully removed.", 1000);
+            }
+            else
+            {
+                s.eprocessor.market.active_offer->transaction_done = true;
+                s.eprocessor.market.UpdateOffer(s.eprocessor.market.active_offer->id, *s.eprocessor.market.active_offer.get());
+                s.eprocessor.market.Save();
+
+                std::string transaction_type = s.eprocessor.market.active_offer->transaction_type == 0? "bought" : "sold";
+                std::string item_name =  s.eif->Get(s.eprocessor.market.active_offer->item.first).name;
+                std::string item_amount = std::to_string(s.eprocessor.market.active_offer->item.second);
+                std::string message = item_name + " x" + item_amount + " has been sold for ";
+                message += std::to_string(s.eprocessor.market.active_offer->price) + " gold.";
+                s.eprocessor.market.active_offer.reset();
+
                 s.eprocessor.DelayedMessage(message, 1000);
             }
         }

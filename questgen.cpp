@@ -58,20 +58,7 @@ std::vector<Quest> QuestGenerator::GetPlayerQuests(std::string holder)
     return ret;
 }
 
-Quest QuestGenerator::GetQuest(std::string holder, short award_id)
-{
-    for(unsigned int i = 0; i < this->quests.size(); ++i)
-    {
-        if(this->quests[i].holder == holder && this->quests[i].award.first == award_id)
-        {
-            return this->quests[i];
-        }
-    }
-
-    return Quest();
-}
-
-Quest QuestGenerator::GetQuestByID(int id)
+Quest QuestGenerator::GetQuest(int id)
 {
     for(unsigned int i = 0; i < this->quests.size(); ++i)
     {
@@ -91,6 +78,30 @@ void QuestGenerator::RemoveQuest(int id)
         if(this->quests[i].id == id)
         {
             this->quests.erase(this->quests.begin() + i);
+            break;
+        }
+    }
+}
+
+int QuestGenerator::GenerateID()
+{
+    int id = 1;
+
+    while(this->GetQuest(id).id != 0)
+    {
+        id++;
+    }
+
+    return id;
+}
+
+void QuestGenerator::UpdateQuest(int id, Quest quest)
+{
+    for(unsigned int i = 0; i < this->quests.size(); ++i)
+    {
+        if(this->quests[i].id == id)
+        {
+            this->quests[i] = quest;
             break;
         }
     }
