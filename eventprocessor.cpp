@@ -42,7 +42,6 @@ void EventProcessor::Process()
     }
 
     this->sitwin.Process();
-
     this->chat_bot.Process();
     if(s.config.GetValue("ChaseBot") == "yes") this->chase_bot.Process();
     this->lottery.Process();
@@ -51,7 +50,11 @@ void EventProcessor::Process()
 
     if(this->help_message_clock.getElapsedTime().asSeconds() > 1800)
     {
-        this->DelayedMessage(this->help_config.GetValue("changes"), 0);
+        //this->DelayedMessage(this->help_config.GetValue("changes"), 0);
+        this->DelayedMessage("(09-09-2017) Marketplace! Type #help_market for info. (09-08-2017) Quest Bot.", 0);
+        this->DelayedMessage("SitWin Jackpot, #getitem features removed - Quest Bot requires closed inventory.", 0);
+        this->DelayedMessage("#peekitem and #inventory commands are now for everyone", 0);
+        this->DelayedMessage("Type #help for more general info.", 0);
         this->help_message_clock.restart();
     }
 

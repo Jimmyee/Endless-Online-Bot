@@ -301,7 +301,7 @@ void Trade_Reply(PacketReader reader) // update of trade items
     bool player_put_item = false;
     bool victim_put_item = false;
 
-    if(s.eprocessor.eo_roulette.run || s.eprocessor.sitwin.run || s.eprocessor.lottery.run
+    if(s.eprocessor.eo_roulette.run || s.eprocessor.item_request.run || s.eprocessor.sitwin.run || s.eprocessor.lottery.run
        || s.eprocessor.quest_gen.item_request.run || s.eprocessor.market.item_request.run)
     {
         for(unsigned int i = 0; i < s.eprocessor.trade->victim_items.size(); ++i)
@@ -319,6 +319,10 @@ void Trade_Reply(PacketReader reader) // update of trade items
                 {
                     victim_put_item = true;
                 }
+            }
+            else if(s.eprocessor.item_request.run)
+            {
+                victim_put_item = true;
             }
             else if(s.eprocessor.sitwin.run)
             {
@@ -388,6 +392,10 @@ void Trade_Reply(PacketReader reader) // update of trade items
                     player_put_item = true;
                 }
             }
+            else if(s.eprocessor.item_request.run)
+            {
+                player_put_item = true;
+            }
             else if(s.eprocessor.sitwin.run)
             {
                 player_put_item = true;
@@ -407,6 +415,13 @@ void Trade_Reply(PacketReader reader) // update of trade items
             {
                 player_put_item = true;
             }
+        }
+    }
+    if(s.eprocessor.eo_roulette.run || s.eprocessor.item_request.run || s.eprocessor.sitwin.run || s.eprocessor.lottery.run)
+    {
+        if(player_put_item && victim_put_item)
+        {
+            s.eoclient.TradeAgree();
         }
     }
     if(s.eprocessor.quest_gen.item_request.run)

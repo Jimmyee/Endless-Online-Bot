@@ -68,53 +68,6 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
                 s.eoclient.Send(packet);
             }
         }*/
-        /*if(command == "setjp" && args.size() == 2)
-        {
-            int amount = std::atoi(args[1].c_str());
-
-            s.eprocessor.eo_roulette.total_gold = amount;
-
-            ret.push_back(std::string() + "Jackpot set to " + std::to_string(amount) + " gold.");
-        }*/
-        /*else if(command == "jp")
-        {
-            s.eprocessor.eo_roulette.gameworld_id = -1;
-            s.eprocessor.eo_roulette.gold_given = s.eprocessor.eo_roulette.total_gold;
-            s.eprocessor.eo_roulette.spins = 0;
-            s.eprocessor.eo_roulette.max_spins = S::GetInstance().rand_gen.RandInt(12, 24);
-            s.eprocessor.eo_roulette.spin_delay = 100;
-            s.eprocessor.eo_roulette.play = true;
-            s.eprocessor.eo_roulette.winner = -1;
-            s.eprocessor.eo_roulette.clock.restart();
-            s.eprocessor.eo_roulette.run = true;
-            s.eprocessor.eo_roulette.jackpot = true;
-
-            s.eprocessor.eo_roulette.jackpot_clock.restart();
-        }*/
-        if(command == "peekitem" && args.size() >= 2)
-        {
-            std::string item_name = "";
-            for(unsigned int i = 1; i < args.size(); ++i)
-            {
-                std::string word = args[i];
-
-                std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-                word[0] = std::toupper(args[i][0]);
-                item_name += word;
-                if(i != args.size() - 1)
-                {
-                    item_name += " ";
-                }
-            }
-
-            EIF_Data eif_data = s.eif->GetByName(item_name);
-            int item_id = eif_data.id;
-            int item_amount = s.inventory.GetItemAmount(item_id);
-
-            std::string message = item_name;
-            message += " amount: " + std::to_string(item_amount);
-            ret.push_back(message);
-        }
         /*else if(command == "tradeitem" && args.size() >= 3 && !s.eprocessor.BlockingEvent())
         {
             std::string item_name = "";
@@ -154,77 +107,10 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
                 ret.push_back(std::string() + "Item " + item_name + " not found.");
             }
         }*/
-        /*else if(command == "inventory")
-        {
-            std::string message = "Random item from my inventory: ";
-
-            if(!s.inventory.items.empty())
-            {
-                int item_id = s.inventory.items[s.rand_gen.RandInt(0, s.inventory.items.size() - 1)].first;
-                std::string item_name = s.eif->Get(item_id).name;
-                message += item_name;
-            }
-            else
-            {
-                message += "<no items>.";
-            }
-
-            ret.push_back(message);
-        }*/
-        /*else if(command == "stgen")
-        {
-            s.eprocessor.sitwin_jackpot.GenerateItem();
-
-            if(s.eprocessor.sitwin_jackpot.item_id == 0)
-            {
-                ret.push_back("SitAndWin jackpot is loading...");
-            }
-            else
-            {
-                std::string message = "SitAndWin jackpot: ";
-                std::string name = s.eif->Get(s.eprocessor.sitwin_jackpot.item_id).name;
-                std::string item_name = name;
-                item_name[0] = std::toupper(name[0]);
-                std::string item_amount = std::to_string(s.eprocessor.sitwin_jackpot.item_amount);
-                message += item_name + " x" + item_amount;
-
-                ret.push_back(message);
-            }
-        }*/
-        /*else if(command == "setstitem" && args.size() >= 2)
-        {
-            std::string item_name = "";
-            for(unsigned int i = 1; i < args.size(); ++i)
-            {
-                std::string word = args[i];
-
-                std::transform(word.begin(), word.end(), word.begin(), ::tolower);
-                word[0] = std::toupper(args[i][0]);
-                item_name += word;
-                if(i != args.size() - 1)
-                {
-                    item_name += " ";
-                }
-            }
-
-            int item_id = s.eif->GetByName(item_name).id;
-            bool found = s.inventory.FindItem(item_id, s.eprocessor.item_request.amount);
-            if(found)
-            {
-                s.eprocessor.sitwin_jackpot.item_id = item_id;
-                s.eprocessor.sitwin_jackpot.item_amount = 1;
-
-                s.eoclient.TalkPublic(std::string() + "ST item set to " + item_name);
-            }
-        }*/
         /*else if(command == "atk")
         {
             s.eoclient.Attack(s.character.direction);
         }*/
-        else if(command == "face")
-        {
-            s.eoclient.Face((Direction)s.rand_gen.RandInt(0, 3));
-        }
         /*else if(command == "wear" && args.size() >= 2)
         {
             std::string item_name = "";
@@ -287,6 +173,10 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
                 s.eoclient.TalkPublic("Item not found.");
             }
         }*/
+        if(command == "face")
+        {
+            s.eoclient.Face((Direction)s.rand_gen.RandInt(0, 3));
+        }
         else
         {
             puts("Wrong master command");
@@ -520,7 +410,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         }
 
         s.eprocessor.DelayedMessage(message, 1000);
-    }
+    }*/
     else if(command == "giveitem" && !s.eprocessor.BlockingEvent())
     {
         s.eprocessor.item_request.gameworld_id = gameworld_id;
@@ -532,11 +422,48 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         std::string message = "Please trade me the items you want to give (available 12 seconds).";
         s.eprocessor.DelayedMessage(message, 1000);
-    }*/
+    }
+    else if(command == "peekitem" && args.size() >= 2)
+    {
+        std::string item_name = "";
+        for(unsigned int i = 1; i < args.size(); ++i)
+        {
+            item_name += args[i];
+            if(i != args.size() - 1)
+            {
+                item_name += " ";
+            }
+        }
+
+        EIF_Data eif_data = s.eif->GetByNameLowercase(item_name);
+        int item_id = eif_data.id;
+        int item_amount = s.inventory.GetItemAmount(item_id);
+
+        std::string message = eif_data.name;
+        message += " amount: " + std::to_string(item_amount);
+        ret.push_back(message);
+    }
     else if(command == "items")
     {
         std::string message = "Inventory contains ";
         message += std::to_string(s.inventory.items.size()) + " items.";
+
+        ret.push_back(message);
+    }
+    else if(command == "inventory")
+    {
+        std::string message = "Random item from my inventory: ";
+
+        if(!s.inventory.items.empty())
+        {
+            int item_id = s.inventory.items[s.rand_gen.RandInt(0, s.inventory.items.size() - 1)].first;
+            std::string item_name = s.eif->Get(item_id).name;
+            message += item_name;
+        }
+        else
+        {
+            message += "<no items>.";
+        }
 
         ret.push_back(message);
     }
@@ -773,6 +700,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         s.eprocessor.quest_gen.item_request.run = true;
         s.eprocessor.item_request.gameworld_id = gameworld_id;
         s.eprocessor.quest_gen.item_request.give = false;
+        s.eprocessor.quest_gen.item_request.requirements.clear();
         s.eprocessor.quest_gen.item_request.clock.restart();
 
         ret.push_back("Alright. Please trade me the award item for this quest.");
@@ -966,6 +894,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         s.eprocessor.market.item_request.run = true;
         s.eprocessor.item_request.gameworld_id = gameworld_id;
         s.eprocessor.market.item_request.give = false;
+        s.eprocessor.market.item_request.requirements.clear();
         s.eprocessor.market.item_request.clock.restart();
 
         s.eprocessor.market.new_offer = std::shared_ptr<Market::Offer>(new Market::Offer());
@@ -995,6 +924,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         s.eprocessor.market.item_request.run = true;
         s.eprocessor.item_request.gameworld_id = gameworld_id;
         s.eprocessor.market.item_request.give = false;
+        s.eprocessor.market.item_request.requirements.clear();
         s.eprocessor.market.item_request.clock.restart();
 
         s.eprocessor.market.new_offer = std::shared_ptr<Market::Offer>(new Market::Offer());
@@ -1022,6 +952,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         s.eprocessor.market.item_request.run = true;
         s.eprocessor.item_request.gameworld_id = gameworld_id;
         s.eprocessor.market.item_request.give = false;
+        s.eprocessor.market.item_request.requirements.clear();
         if(offer.transaction_type == 0)
         {
             s.eprocessor.market.item_request.requirements.push_back(offer.item);
@@ -1063,6 +994,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         s.eprocessor.market.item_request.run = true;
         s.eprocessor.item_request.gameworld_id = gameworld_id;
         s.eprocessor.market.item_request.give = true;
+        s.eprocessor.market.item_request.requirements.clear();
         if(offer.transaction_type == 0)
         {
             if(offer.transaction_done)
