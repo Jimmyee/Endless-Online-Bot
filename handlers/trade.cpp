@@ -222,9 +222,48 @@ void Trade_Open(PacketReader reader)
         }
         else
         {
-            short id = s.eprocessor.market.item_request.special_item.first;
-            int amount = s.eprocessor.market.item_request.special_item.second;
-            s.eoclient.TradeAdd(id, amount);
+            if(s.eprocessor.market.item_request.give)
+            {
+                if(s.eprocessor.market.active_offer->transaction_type == 0)
+                {
+                    if(s.eprocessor.market.active_offer->transaction_done)
+                    {
+                        short id = s.eprocessor.market.item_request.special_item.first;
+                        int amount = s.eprocessor.market.item_request.special_item.second;
+                        s.eoclient.TradeAdd(id, amount);
+                    }
+                    else
+                    {
+                        s.eoclient.TradeAdd(1, s.eprocessor.market.active_offer->price);
+                    }
+                }
+                else
+                {
+                    if(s.eprocessor.market.active_offer->transaction_done)
+                    {
+                        s.eoclient.TradeAdd(1, s.eprocessor.market.active_offer->price);
+                    }
+                    else
+                    {
+                        short id = s.eprocessor.market.item_request.special_item.first;
+                        int amount = s.eprocessor.market.item_request.special_item.second;
+                        s.eoclient.TradeAdd(id, amount);
+                    }
+                }
+            }
+            else
+            {
+                if(s.eprocessor.market.active_offer->transaction_type == 0)
+                {
+                    s.eoclient.TradeAdd(1, s.eprocessor.market.active_offer->price);
+                }
+                else
+                {
+                    short id = s.eprocessor.market.item_request.special_item.first;
+                    int amount = s.eprocessor.market.item_request.special_item.second;
+                    s.eoclient.TradeAdd(id, amount);
+                }
+            }
         }
     }
 
@@ -358,9 +397,9 @@ void Trade_Reply(PacketReader reader) // update of trade items
                 {
                     if(s.eprocessor.market.new_offer->transaction_type == 0)
                     {
-                        if(id == 1 && amount >= 2)
+                        if(id == 1 && amount >= 1)
                         {
-                            s.eprocessor.market.new_offer->price = amount - 1;
+                            s.eprocessor.market.new_offer->price = amount;
                             victim_put_item = true;
                         }
                     }
@@ -687,7 +726,7 @@ void Trade_Use(PacketReader reader) // trade finished
             std::string item_name = s.eif->Get(s.eprocessor.quest_gen.new_quest->award.first).name;
             std::string item_amount = std::to_string(s.eprocessor.quest_gen.new_quest->award.second);
 
-            std::string message = "Quest for " + item_name + " x" + item_amount + " has been created.";
+            std::string message = "Quest for " + item_name + " x" + item_amount + " created.";
             s.eprocessor.DelayedMessage(message, 1000);
 
             s.eprocessor.quest_gen.new_quest.reset();
@@ -740,7 +779,7 @@ void Trade_Use(PacketReader reader) // trade finished
             s.eprocessor.market.Save();
 
             std::string transaction_type = s.eprocessor.market.new_offer->transaction_type == 0? "BUY" : "SELL";
-            std::string message = "Your offer has been saved (" + transaction_type + "->";
+            std::string message = "Offer saved (" + transaction_type + " -> ";
             std::string item_name =  s.eif->Get(s.eprocessor.market.new_offer->item.first).name;
             std::string item_amount = std::to_string(s.eprocessor.market.new_offer->item.second);
             message += item_name + " x" + item_amount;
@@ -757,7 +796,7 @@ void Trade_Use(PacketReader reader) // trade finished
                 s.eprocessor.market.active_offer.reset();
                 s.eprocessor.market.Save();
 
-                s.eprocessor.DelayedMessage("Offer has been successfully removed.", 1000);
+                s.eprocessor.DelayedMessage("Offer successfully removed.", 1000);
             }
             else
             {
@@ -768,7 +807,7 @@ void Trade_Use(PacketReader reader) // trade finished
                 std::string transaction_type = s.eprocessor.market.active_offer->transaction_type == 0? "bought" : "sold";
                 std::string item_name =  s.eif->Get(s.eprocessor.market.active_offer->item.first).name;
                 std::string item_amount = std::to_string(s.eprocessor.market.active_offer->item.second);
-                std::string message = item_name + " x" + item_amount + " has been sold for ";
+                std::string message = item_name + " x" + item_amount + " sold for ";
                 message += std::to_string(s.eprocessor.market.active_offer->price) + " gold.";
                 s.eprocessor.market.active_offer.reset();
 

@@ -201,9 +201,8 @@ void EORoulette::Process()
                 else
                 {
                     this->run = false;
-                    int jackpot_percentage = (this->gold_given / 3) * 2;
+                    this->total_gold = this->jackpot? 0 : this->gold_given;
                     this->gold_given = 0;
-                    this->total_gold += this->jackpot? 0 : jackpot_percentage;
                     this->jackpot = false;
                     s.eoclient.TalkPublic("The game has been finished.");
                 }

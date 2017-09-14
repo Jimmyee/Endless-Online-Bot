@@ -121,7 +121,7 @@ void Market::Process()
                 this->active_offer.reset();
             }
 
-            s.eprocessor.DelayedMessage("Trade canceled due to player inactivity.", 1000);
+            //s.eprocessor.DelayedMessage("Trade canceled due to player inactivity.", 1000);
         }
     }
     else
