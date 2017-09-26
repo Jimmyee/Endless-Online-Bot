@@ -63,6 +63,12 @@ bool Config::Load(std::string filename)
     return true;
 }
 
+void Config::Reload(std::string filename)
+{
+    this->entries.clear();
+    this->Load(filename);
+}
+
 void Config::Save(std::string filename)
 {
     std::ofstream file(filename, std::ios::trunc);

@@ -1,4 +1,5 @@
 #include "itemreq.hpp"
+#include "singleton.hpp"
 
 ItemRequest::ItemRequest()
 {
@@ -33,4 +34,27 @@ bool ItemRequest::MeetsRequirements(std::vector<std::pair<short, int>> victim_it
     }
 
     return false;
+}
+
+void ItemRequest::Process()
+{
+    S &s = S::GetInstance();
+
+    if(this->run)
+    {
+        int time_delay = 30;//(s.eprocessor.trade.get())? 30 : 12;
+        if(this->clock.getElapsedTime().asSeconds() >= time_delay)
+        {
+            this->run = false;
+
+            if(s.eprocessor.trade.get())
+            {
+                s.eprocessor.trade.reset();
+
+                s.eoclient.TradeClose();
+            }
+
+            s.eprocessor.DelayedMessage("Trade canceled due to player inactivity.", 1000);
+        }
+    }
 }

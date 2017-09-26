@@ -317,7 +317,7 @@ void EOClient::RequestInit()
     builder.AddChar(28); // version
     builder.AddChar(2); // ?
     builder.AddChar(2); // ?
-    builder.AddString("56490234566"); // HDD ID
+    builder.AddString("56490234533"); // HDD ID
 
     this->Send(builder);
 }

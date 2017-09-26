@@ -59,47 +59,6 @@ void Trade_Request(PacketReader reader)
             }
         }
     }
-    else if(s.eprocessor.lottery.run)
-    {
-        if(!s.eprocessor.lottery.play)
-        {
-            if(s.eprocessor.lottery.winner == -1)
-            {
-                bool found = false;
-
-                if(s.eprocessor.lottery.requests.empty())
-                {
-                    return;
-                }
-
-                for(unsigned int i = 0; i < s.eprocessor.lottery.requests.size(); ++i)
-                {
-                    if(s.eprocessor.lottery.requests[i].gameworld_id == gameworld_id)
-                    {
-                        found = true;
-                        break;
-                    }
-                }
-
-                if(gameworld_id == s.eprocessor.lottery.winner)
-                {
-                    found = true;
-                }
-
-                if(found)
-                {
-                    s.eoclient.TradeAccept(gameworld_id);
-                }
-            }
-            else
-            {
-                if(gameworld_id == s.eprocessor.lottery.winner)
-                {
-                    s.eoclient.TradeAccept(gameworld_id);
-                }
-            }
-        }
-    }
     else if(s.eprocessor.quest_gen.item_request.run)
     {
         if(gameworld_id == s.eprocessor.quest_gen.item_request.gameworld_id)
@@ -127,7 +86,7 @@ void Trade_Open(PacketReader reader)
 
     s.eprocessor.trade = std::shared_ptr<Trade>(new Trade(gameworld_id));
 
-    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run && !s.eprocessor.lottery.run
+    if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run && !s.eprocessor.sitwin.run
        && !s.eprocessor.quest_gen.item_request.run && !s.eprocessor.market.item_request.run)
     {
         s.eoclient.TradeClose();
@@ -171,19 +130,6 @@ void Trade_Open(PacketReader reader)
         else
         {
             s.eoclient.TradeAdd(s.eprocessor.sitwin.item_id, s.eprocessor.sitwin.item_amount);
-        }
-    }
-    else if(s.eprocessor.lottery.run)
-    {
-        s.eprocessor.lottery.clock.restart();
-
-        if(s.eprocessor.lottery.winner == -1)
-        {
-            s.eoclient.TradeAdd(1, 1);
-        }
-        else
-        {
-            s.eoclient.TradeAdd(1, s.eprocessor.lottery.award);
         }
     }
     else if(s.eprocessor.quest_gen.item_request.run)
@@ -281,17 +227,6 @@ void Trade_Close(PacketReader reader) // other player closed trade
     {
         s.eprocessor.eo_roulette.payments++;
     }
-    else if(s.eprocessor.lottery.run)
-    {
-        for(unsigned int i = 0; i < s.eprocessor.lottery.requests.size(); ++i)
-        {
-            if(s.eprocessor.lottery.requests[i].gameworld_id == gameworld_id)
-            {
-                //s.eprocessor.lottery.requests.erase(s.eprocessor.lottery.requests.begin() + i);
-                break;
-            }
-        }
-    }
 }
 
 void Trade_Reply(PacketReader reader) // update of trade items
@@ -330,7 +265,7 @@ void Trade_Reply(PacketReader reader) // update of trade items
     reader.GetByte(); // 255
 
     if(!s.eprocessor.eo_roulette.run && !s.eprocessor.item_request.run
-       && !s.eprocessor.sitwin.run && !s.eprocessor.lottery.run && !s.eprocessor.quest_gen.item_request.run
+       && !s.eprocessor.sitwin.run && !s.eprocessor.quest_gen.item_request.run
        && !s.eprocessor.market.item_request.run)
     {
         s.eoclient.TradeClose();
@@ -340,7 +275,7 @@ void Trade_Reply(PacketReader reader) // update of trade items
     bool player_put_item = false;
     bool victim_put_item = false;
 
-    if(s.eprocessor.eo_roulette.run || s.eprocessor.item_request.run || s.eprocessor.sitwin.run || s.eprocessor.lottery.run
+    if(s.eprocessor.eo_roulette.run || s.eprocessor.item_request.run || s.eprocessor.sitwin.run
        || s.eprocessor.quest_gen.item_request.run || s.eprocessor.market.item_request.run)
     {
         for(unsigned int i = 0; i < s.eprocessor.trade->victim_items.size(); ++i)
@@ -372,17 +307,6 @@ void Trade_Reply(PacketReader reader) // update of trade items
                     victim_put_item = true;
                 }
                 else
-                {
-                    victim_put_item = true;
-                }
-            }
-            else if(s.eprocessor.lottery.run)
-            {
-                if(s.eprocessor.lottery.winner == -1 && id == 1 && amount >= s.eprocessor.lottery.ticket_price)
-                {
-                    victim_put_item = true;
-                }
-                else if(s.eprocessor.lottery.winner != -1)
                 {
                     victim_put_item = true;
                 }
@@ -439,13 +363,6 @@ void Trade_Reply(PacketReader reader) // update of trade items
             {
                 player_put_item = true;
             }
-            else if(s.eprocessor.lottery.run)
-            {
-                if(id == 1)
-                {
-                    player_put_item = true;
-                }
-            }
             else if(s.eprocessor.quest_gen.item_request.run)
             {
                 player_put_item = true;
@@ -456,7 +373,7 @@ void Trade_Reply(PacketReader reader) // update of trade items
             }
         }
     }
-    if(s.eprocessor.eo_roulette.run || s.eprocessor.item_request.run || s.eprocessor.sitwin.run || s.eprocessor.lottery.run)
+    if(s.eprocessor.eo_roulette.run || s.eprocessor.item_request.run || s.eprocessor.sitwin.run)
     {
         if(player_put_item && victim_put_item)
         {
@@ -604,17 +521,6 @@ void Trade_Use(PacketReader reader) // trade finished
                 s.eprocessor.sitwin.item_amount = amount;
             }
         }
-        if(id == 1 && s.eprocessor.lottery.run)
-        {
-            for(unsigned int i = 0; i < s.eprocessor.lottery.requests.size(); ++i)
-            {
-                if(s.eprocessor.lottery.requests[i].gameworld_id == gameworld_id)
-                {
-                    s.eprocessor.lottery.tickets.push_back(s.eprocessor.lottery.requests[i]);
-                    s.eprocessor.lottery.requests.erase(s.eprocessor.lottery.requests.begin() + i);
-                }
-            }
-        }
     }
 
     for(unsigned int i = 0; i < s.eprocessor.trade->player_items.size(); ++i)
@@ -635,7 +541,7 @@ void Trade_Use(PacketReader reader) // trade finished
             s.eprocessor.eo_roulette.clock.restart();
 
             message = std::string() + std::to_string(s.eprocessor.eo_roulette.gold_given);
-            message += " gold in the bank. You can still add more gold. Starting in 12 seconds...";
+            message += " gold in the bank. You can still add more gold. Starting in 30 seconds...";
         }
         else
         {
@@ -656,19 +562,61 @@ void Trade_Use(PacketReader reader) // trade finished
     {
         s.eprocessor.item_request.run = false;
 
-        if(s.eprocessor.item_request.give)
+        if(s.eprocessor.item_request.special_item.first == 1)
         {
-            std::string message = "Thank you ";
-            int i = s.map.GetCharacterIndex(victim_gameworld_id);
+            if(s.eprocessor.item_request.give)
+            {
+                for(unsigned int i = 0; i < s.eprocessor.trade->victim_items.size(); ++i)
+                {
+                    s.eprocessor.donated.AddItem(s.eprocessor.trade->victim_items[i].first, s.eprocessor.trade->victim_items[i].second);
+                }
+                s.eprocessor.SaveDonated();
 
-            std::string name = s.map.characters[i].name;
-            name[0] = std::toupper(s.map.characters[i].name[0]);
-            if(i != -1) message += name + ".";
-            message += " Now someone can take particular items if he/she needs to.";
-            DelayMessage delay_message(message, 1000);
-            delay_message.channel = 1;
-            delay_message.victim_name = s.map.characters[i].name;
-            s.eprocessor.DelayedMessage(delay_message);
+                std::string message = "Thank you ";
+                int i = s.map.GetCharacterIndex(victim_gameworld_id);
+
+                std::string name = s.map.characters[i].name;
+                name[0] = std::toupper(s.map.characters[i].name[0]);
+                if(i != -1) message += name + ".";
+                message += " I love to be the service to you. ~Jimmyee.";
+                DelayMessage delay_message(message, 1000);
+                delay_message.channel = 1;
+                delay_message.victim_name = s.map.characters[i].name;
+                s.eprocessor.DelayedMessage(delay_message);
+            }
+            else
+            {
+                s.eprocessor.donated.DelItem(s.eprocessor.trade->player_items[0].first, s.eprocessor.trade->player_items[0].second);
+                s.eprocessor.SaveDonated();
+            }
+        }
+        else
+        {
+            if(s.eprocessor.item_request.give)
+            {
+                for(unsigned int i = 0; i < s.eprocessor.trade->victim_items.size(); ++i)
+                {
+                    s.eprocessor.free_inv.AddItem(s.eprocessor.trade->victim_items[i].first, s.eprocessor.trade->victim_items[i].second);
+                }
+                s.eprocessor.SaveFreeItems();
+
+                std::string message = "Thank you ";
+                int i = s.map.GetCharacterIndex(victim_gameworld_id);
+
+                std::string name = s.map.characters[i].name;
+                name[0] = std::toupper(s.map.characters[i].name[0]);
+                if(i != -1) message += name + ".";
+                message += " Now someone can take particular items if he/she needs to.";
+                DelayMessage delay_message(message, 1000);
+                delay_message.channel = 1;
+                delay_message.victim_name = s.map.characters[i].name;
+                s.eprocessor.DelayedMessage(delay_message);
+            }
+            else
+            {
+                s.eprocessor.free_inv.DelItem(s.eprocessor.trade->player_items[0].first, s.eprocessor.trade->player_items[0].second);
+                s.eprocessor.SaveFreeItems();
+            }
         }
     }
     else if(s.eprocessor.sitwin.run)
@@ -682,30 +630,11 @@ void Trade_Use(PacketReader reader) // trade finished
 
             message = std::string() + "->" + item_name + " x" + std::to_string(s.eprocessor.sitwin.item_amount) + "<-";
             message += " in the bank.";
-            message += " Please sit next to me to have a chance to win! Starting in 20 seconds...";
+            message += " Please sit next to me to have a chance to win! Starting in 30 seconds...";
         }
         else
         {
             s.eprocessor.sitwin.run = false;
-            message = "The game has been finished.";
-        }
-
-        s.eoclient.TalkPublic(message);
-    }
-    else if(s.eprocessor.lottery.run)
-    {
-        std::string message;
-        if(s.eprocessor.lottery.winner == -1)
-        {
-            s.eprocessor.lottery.clock.restart();
-
-            message = std::string() + std::to_string(s.eprocessor.lottery.tickets.size() * s.eprocessor.lottery.ticket_price);
-            message += " gold in the bank. You can still register tickets. Starting in 15 seconds...";
-        }
-        else
-        {
-            s.eprocessor.lottery.run = false;
-
             message = "The game has been finished.";
         }
 

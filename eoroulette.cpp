@@ -156,8 +156,9 @@ void EORoulette::Process()
 
                     std::string message = "Congratulations " + name_upper;
                     message += ", you won " + std::to_string(this->gold_given) + " gold!";
+                    message += " (" + std::to_string(jackpot_percentage) + "g taken to the Jackpot)";
                     s.eprocessor.DelayedMessage(message, alternative_winner? 3000 : 1000);
-                    message = "Please trade me to receive your award. (Available 15 seconds)";
+                    message = "Please trade me to receive your award. (Available 30 seconds)";
                     s.eprocessor.DelayedMessage(message, 3000);
 
                     s.eoclient.TradeRequest(winner.gameworld_id);
@@ -176,8 +177,7 @@ void EORoulette::Process()
         }
         else
         {
-            int time_delay = (s.eprocessor.trade.get() || this->winner != -1)? 15 : 12;
-            if(this->clock.getElapsedTime().asSeconds() >= time_delay)
+            if(this->clock.getElapsedTime().asSeconds() >= 30)
             {
                 if(s.eprocessor.trade.get())
                 {
@@ -212,9 +212,12 @@ void EORoulette::Process()
     else
     {
         int jackpot_time = this->jp_time;
-        int elapsed = this->jackpot_clock.getElapsedTime().asSeconds();
+        float elapsed = this->jackpot_clock.getElapsedTime().asSeconds();
         if(elapsed >= jackpot_time && !s.eprocessor.BlockingEvent())
         {
+            this->jp_time = 14400;
+            this->jackpot_clock.restart();
+
             if(this->total_gold > 0)
             {
                 this->gameworld_id = -1;
@@ -230,14 +233,10 @@ void EORoulette::Process()
                 this->jackpot = true;
                 this->payments = 0;
 
-                this->jackpot_clock.restart();
-
                 s.eoclient.TalkPublic("Jackpot game started!");
             }
             else
             {
-                this->jackpot_clock.restart();
-
                 s.eoclient.TalkPublic("The jackpot game was held: no gold in the bank.");
             }
         }

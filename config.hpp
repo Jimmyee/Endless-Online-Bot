@@ -23,6 +23,7 @@ public:
     Config();
     Config(std::string filename);
     bool Load(std::string filename);
+    void Reload(std::string filename);
     void Save(std::string filename);
     Entry GetEntry(std::string key);
     std::string GetValue(std::string key);

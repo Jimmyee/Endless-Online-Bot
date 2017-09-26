@@ -79,7 +79,7 @@ void SitWin::Process()
                 std::string message = "Congratulations " + name_upper;
                 message += ", you won " + item_name + " x" + item_amount_str + ".";
                 s.eprocessor.DelayedMessage(message, 1000);
-                message = "Please trade me to receive your award. (Available 15 seconds)";
+                message = "Please trade me to receive your award. (Available 30 seconds)";
                 s.eprocessor.DelayedMessage(message, 5000);
 
                 s.eoclient.TradeRequest(this->winner);
@@ -96,8 +96,7 @@ void SitWin::Process()
         {
             int elapsed = this->clock.getElapsedTime().asSeconds();
             //int elapsed_reminder = this->reminder_clock.getElapsedTime().asSeconds();
-            int time_delay = (s.eprocessor.trade.get() || this->winner != -1)? 15 : 20;
-            if(elapsed >= time_delay)
+            if(elapsed >= 30)
             {
                 if(this->winner == -1)
                 {

@@ -17,6 +17,7 @@ struct ItemRequest
 
     ItemRequest();
     bool MeetsRequirements(std::vector<std::pair<short, int>> victim_items);
+    void Process();
 };
 
 #endif // ITEMREQ_HPP_INCLUDED

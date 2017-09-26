@@ -9,9 +9,11 @@
 #include "chasebot.hpp"
 #include "itemreq.hpp"
 #include "sitwin.hpp"
-#include "lottery.hpp"
 #include "questgen.hpp"
 #include "market.hpp"
+#include "inventory.hpp"
+#include "joke.hpp"
+#include "chamber.hpp"
 
 #include <SFML/System.hpp>
 #include <vector>
@@ -52,17 +54,32 @@ struct EventProcessor
     sf::Clock refresh_clock;
     ItemRequest item_request;
     SitWin sitwin;
-    Lottery lottery;
     Config help_config;
     QuestGenerator quest_gen;
     Market market;
+    Inventory free_inv;
+    Inventory donated;
+    std::vector<Joke> jokes;
+    Config news;
+    Chamber chamber;
 
     EventProcessor();
 
     void Process();
-    void DelayedMessage(std::string message, int time_ms = 0);
+    void DelayedMessage(std::string message, int time_ms = 0, int channel = 0, std::string victim_name = "");
     void DelayedMessage(DelayMessage delay_message);
     bool BlockingEvent();
+
+    void SaveFreeItems();
+    void SaveDonated();
+    int GetJokeAmount(std::string name);
+    void RemoveJokeOf(std::string name);
+    Joke GetJokeByID(unsigned int id);
+    int GetJokeID(std::string joke);
+    void UpdateJoke(unsigned int id, Joke joke);
+    Joke GetBestJoke();
+    Joke GetFreeJoke();
+    void SaveJokes();
 };
 
 #endif // EVENTPROCESSOR_HPP_INCLUDED

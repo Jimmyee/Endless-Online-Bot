@@ -104,7 +104,7 @@ void Market::Process()
 
     if(this->item_request.run)
     {
-        int time_delay = (s.eprocessor.trade.get())? 30 : 12;
+        int time_delay = 30;//(s.eprocessor.trade.get())? 30 : 12;
         if(this->item_request.clock.getElapsedTime().asSeconds() >= time_delay)
         {
             this->item_request.run = false;
