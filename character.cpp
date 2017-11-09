@@ -45,4 +45,5 @@ Character::Character()
     this->visibility = 0;
 
     this->command_clock.restart();
+    this->eor_payments = 0;
 }

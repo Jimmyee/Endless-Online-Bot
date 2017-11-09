@@ -9,6 +9,6 @@ void Item_Drop(PacketReader reader)
     reader.GetShort(); // id
     reader.GetThree(); // amount
     reader.GetInt(); // remaining amount
-    short uid = reader.GetShort();
+    /*short uid = */reader.GetShort();
 }
 

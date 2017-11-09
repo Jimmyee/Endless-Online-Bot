@@ -19,7 +19,6 @@ EORoulette::EORoulette()
     this->jackpot = false;
     this->jp_time = 14400;
     this->jpconfig.Load("./jackpots.txt");
-    this->payments = 0;
 }
 
 void EORoulette::Run(short gameworld_id)
@@ -34,10 +33,15 @@ void EORoulette::Run(short gameworld_id)
     this->winner = -1;
     this->clock.restart();
     this->run = true;
-    this->jackpot = false;
-    this->payments = 0;
+    this->payments.clear();
+    this->players.clear();
 
     S &s = S::GetInstance();
+
+    for(unsigned int i = 0; i < s.map.characters.size(); ++i)
+    {
+        s.map.characters[i].eor_payments = 0;
+    }
 
     s.eoclient.TradeRequest(this->gameworld_id);
 }
@@ -93,17 +97,21 @@ void EORoulette::Process()
                 int winner_y = s.character.y + yoff;
 
                 std::vector<Character> winners;
-                for(unsigned int i = 0; i < s.map.characters.size(); ++i)
+                if(this->jackpot)
                 {
-                    if(s.map.characters[i].x == winner_x && s.map.characters[i].y == winner_y)
+                    this->players = s.map.characters;
+                }
+                for(unsigned int i = 0; i < this->players.size(); ++i)
+                {
+                    if(this->players[i].x == winner_x && this->players[i].y == winner_y)
                     {
-                        if(s.map.characters[i].gameworld_id != s.character.gameworld_id && !this->jackpot)
+                        if(this->players[i].gameworld_id != s.character.gameworld_id && !this->jackpot)
                         {
-                            winners.push_back(s.map.characters[i]);
+                            winners.push_back(this->players[i]);
                         }
-                        else if(s.map.characters[i].gameworld_id != s.character.gameworld_id && this->jackpot)
+                        else if(this->players[i].gameworld_id != s.character.gameworld_id && this->jackpot)
                         {
-                            winners.push_back(s.map.characters[i]);
+                            winners.push_back(this->players[i]);
                         }
                     }
                 }
@@ -111,13 +119,11 @@ void EORoulette::Process()
                 bool alternative_winner = false;
                 if(winners.empty())
                 {
-                    for(unsigned int i = 0; i < s.map.characters.size(); ++i)
+                    for(unsigned int i = 0; i < this->players.size(); ++i)
                     {
-                        int path_len = path_length(s.character.x, s.character.y, s.map.characters[i].x, s.map.characters[i].y);
-
-                        if(path_len == 1)
+                        if(this->players[i].gameworld_id != s.character.gameworld_id)
                         {
-                            winners.push_back(s.map.characters[i]);
+                            winners.push_back(this->players[i]);
                             alternative_winner = true;
                         }
                     }
@@ -142,13 +148,29 @@ void EORoulette::Process()
                     }
 
                     int jackpot_percentage = this->gold_given / 20;
-                    if(this->jackpot || (this->payments == 1 && this->winner == this->gameworld_id)) jackpot_percentage = 0;
+                    if(this->jackpot || (this->payments.size() == 1 && this->winner == this->gameworld_id)) jackpot_percentage = 0;
                     this->gold_given -= jackpot_percentage;
                     this->total_gold += jackpot_percentage;
 
                     if(alternative_winner)
                     {
-                        s.eprocessor.DelayedMessage("No one won, giving gold to random player...", 1000);
+                        bool not_player = false;
+                        for(unsigned int i = 0; i < s.map.characters.size(); ++i)
+                        {
+                            if(s.map.characters[i].x == winner_x && s.map.characters[i].y == winner_y)
+                            {
+                                if(s.map.characters[i].gameworld_id != s.character.gameworld_id && !this->jackpot)
+                                {
+                                    not_player = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        std::string message = "No one won, giving gold to random player...";
+                        if(not_player) message += " You have to bet to play.";
+
+                        s.eprocessor.DelayedMessage(message, 1000);
                     }
 
                     std::string name_upper = winner.name;
@@ -165,13 +187,25 @@ void EORoulette::Process()
                 }
                 else
                 {
-                    std::string message = "Sorry, no one won.";
-                    s.eprocessor.DelayedMessage(message, 1000);
-
                     this->run = false;
                     int jackpot_percentage = (this->gold_given / 3) * 2;
                     this->total_gold += this->jackpot? 0 : jackpot_percentage;
                     this->jackpot = false;
+
+                    for(unsigned int i = 0; i < s.map.characters.size(); ++i)
+                    {
+                        if(s.map.characters[i].x == winner_x && s.map.characters[i].y == winner_y)
+                        {
+                            if(s.map.characters[i].gameworld_id != s.character.gameworld_id && !this->jackpot)
+                            {
+                                winners.push_back(s.map.characters[i]);
+                            }
+                        }
+                    }
+
+                    std::string message = "Sorry, no one won.";
+                    if(winners.size() > 0) message += " You have to bet to join the game.";
+                    s.eprocessor.DelayedMessage(message, 1000);
                 }
             }
         }
@@ -181,7 +215,15 @@ void EORoulette::Process()
             {
                 if(s.eprocessor.trade.get())
                 {
-                    s.eoclient.TradeClose();
+                    int i = s.map.GetCharacterIndex(s.eprocessor.trade->victim_gameworld_id);
+                    if(i != -1)
+                    {
+                        s.eoclient.TradeClose();
+                        s.map.characters[i].eor_payments++;
+                        this->clock.restart();
+                        s.eprocessor.DelayedMessage("Trade canceled. The game will start in 30 seconds...", 1000);
+                    }
+                    return;
                 }
 
                 if(this->winner == -1)
@@ -212,7 +254,7 @@ void EORoulette::Process()
     else
     {
         int jackpot_time = this->jp_time;
-        float elapsed = this->jackpot_clock.getElapsedTime().asSeconds();
+        int elapsed = this->jackpot_clock.getElapsedTime().asSeconds();
         if(elapsed >= jackpot_time && !s.eprocessor.BlockingEvent())
         {
             this->jp_time = 14400;
@@ -231,7 +273,13 @@ void EORoulette::Process()
                 this->clock.restart();
                 this->run = true;
                 this->jackpot = true;
-                this->payments = 0;
+                this->payments.clear();
+                this->players.clear();
+
+                for(unsigned int i = 0; i < s.map.characters.size(); ++i)
+                {
+                    s.map.characters[i].eor_payments = 0;
+                }
 
                 s.eoclient.TalkPublic("Jackpot game started!");
             }
@@ -261,15 +309,5 @@ void EORoulette::Process()
                 this->reminder_global.restart();
             }
         }
-        /*else if(elapsed >= jackpot_time - 10 && elapsed < jackpot_time)
-        {
-            if(this->reminder_clock.getElapsedTime().asSeconds() >= 1)
-            {
-                std::string message = std::to_string(jackpot_time - elapsed);
-
-                s.eoclient.TalkPublic(message);
-                this->reminder_clock.restart();
-            }
-        }*/
     }
 }

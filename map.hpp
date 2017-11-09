@@ -32,6 +32,7 @@ public:
     int GetNPCIndex(unsigned char gameworld_index);
     void RemoveNPC(unsigned char gameworld_index);
     bool Occupied(unsigned char x, unsigned char y);
+    bool Walkable(unsigned char x, unsigned char y);
 };
 
 #endif // MAP_HPP_INCLUDED

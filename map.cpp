@@ -106,3 +106,24 @@ bool Map::Occupied(unsigned char x, unsigned char y)
 
     return false;
 }
+
+bool Map::Walkable(unsigned char x, unsigned char y)
+{
+    S &s = S::GetInstance();
+
+    bool warp_near = false;
+
+    if(s.emf->GetWarp(x, y - 1).map != 0 || s.emf->GetWarp(x + 1, y).map != 0
+       || s.emf->GetWarp(x, y + 1).map != 0 || s.emf->GetWarp(x - 1, y).map != 0
+       || s.emf->GetWarp(x, y).map != 0)
+    {
+        warp_near = true;
+    }
+
+    if(s.emf->Walkable(x, y) && !s.map.Occupied(x, y) && !warp_near)
+    {
+        return true;
+    }
+
+    return false;
+}

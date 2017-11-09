@@ -16,9 +16,6 @@ void initialize_data_handlers()
     s.esf = shared_ptr<ESF>(new ESF("./pub/dsl001.esf"));
     s.ecf = shared_ptr<ECF>(new ECF("./pub/dat001.ecf"));
 
-    s.eprocessor.chase_bot.center_x = std::atoi(S::GetInstance().config.GetValue("CenterX").c_str());
-    s.eprocessor.chase_bot.center_y = std::atoi(S::GetInstance().config.GetValue("CenterY").c_str());
-
     puts("data handlers initialized");
 }
 

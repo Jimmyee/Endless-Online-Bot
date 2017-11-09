@@ -11,9 +11,11 @@ void Trade_Request(PacketReader reader)
 
     if(s.eprocessor.trade.get()) return;
 
-    if(s.eprocessor.eo_roulette.run)
+    int i = s.map.GetCharacterIndex(gameworld_id);
+
+    if(s.eprocessor.eo_roulette.run && i != -1)
     {
-        if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.payments < 10)
+        if(!s.eprocessor.eo_roulette.play && s.map.characters[i].eor_payments < 16)
         {
             if(s.eprocessor.eo_roulette.winner == -1)
             {
@@ -27,7 +29,7 @@ void Trade_Request(PacketReader reader)
                 }
             }
         }
-        else if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.payments >= 16)
+        else if(!s.eprocessor.eo_roulette.play && s.map.characters[i].eor_payments >= 16)
         {
             s.eprocessor.DelayedMessage("Sorry, you can only add gold up to 16 times.", 1000);
         }
@@ -81,7 +83,7 @@ void Trade_Open(PacketReader reader)
 
     short gameworld_id = reader.GetShort();
     std::string name = reader.GetBreakString();
-    short my_gameworld_id = reader.GetShort();
+    /*short my_gameworld_id = */reader.GetShort();
     std::string my_name = reader.GetBreakString();
 
     s.eprocessor.trade = std::shared_ptr<Trade>(new Trade(gameworld_id));
@@ -225,7 +227,13 @@ void Trade_Close(PacketReader reader) // other player closed trade
 
     if(s.eprocessor.eo_roulette.run && !s.eprocessor.eo_roulette.play)
     {
-        s.eprocessor.eo_roulette.payments++;
+        int i = s.map.GetCharacterIndex(gameworld_id);
+        if(i != -1)
+        {
+            s.map.characters[i].eor_payments++;
+            s.eprocessor.eo_roulette.clock.restart();
+            s.eprocessor.DelayedMessage("Trade canceled. The game will start in 30 seconds...", 1000);
+        }
     }
 }
 
@@ -235,6 +243,7 @@ void Trade_Reply(PacketReader reader) // update of trade items
 
     if(!s.eprocessor.trade.get()) return;
 
+    short victim_id = 0;
     short gameworld_id = reader.GetShort();
 
     s.eprocessor.trade->player_items.clear();
@@ -247,7 +256,10 @@ void Trade_Reply(PacketReader reader) // update of trade items
         if(gameworld_id == s.character.gameworld_id)
             s.eprocessor.trade->player_items.push_back(std::make_pair(item_id, item_amount));
         else
+        {
             s.eprocessor.trade->victim_items.push_back(std::make_pair(item_id, item_amount));
+            victim_id = gameworld_id;
+        }
     }
     reader.GetByte(); // 255
 
@@ -260,7 +272,10 @@ void Trade_Reply(PacketReader reader) // update of trade items
         if(gameworld_id == s.character.gameworld_id)
             s.eprocessor.trade->player_items.push_back(std::make_pair(item_id, item_amount));
         else
+        {
             s.eprocessor.trade->victim_items.push_back(std::make_pair(item_id, item_amount));
+            victim_id = gameworld_id;
+        }
     }
     reader.GetByte(); // 255
 
@@ -346,7 +361,7 @@ void Trade_Reply(PacketReader reader) // update of trade items
         for(unsigned int i = 0; i < s.eprocessor.trade->player_items.size(); ++i)
         {
             short id = std::get<0>(s.eprocessor.trade->player_items[i]);
-            int amount = std::get<1>(s.eprocessor.trade->player_items[i]);
+            /*int amount = */std::get<1>(s.eprocessor.trade->player_items[i]);
 
             if(s.eprocessor.eo_roulette.run)
             {
@@ -373,7 +388,39 @@ void Trade_Reply(PacketReader reader) // update of trade items
             }
         }
     }
-    if(s.eprocessor.eo_roulette.run || s.eprocessor.item_request.run || s.eprocessor.sitwin.run)
+    if(s.eprocessor.eo_roulette.run)
+    {
+        if(player_put_item && victim_put_item)
+        {
+            bool can_play = false;
+
+            if(s.eprocessor.eo_roulette.payments.size() > 0)
+            {
+                int bet_price = s.eprocessor.eo_roulette.payments[s.eprocessor.eo_roulette.payments.size() - 1] / 3;
+
+                if(s.eprocessor.trade->victim_items[0].second >= bet_price)
+                {
+                    can_play = true;
+                }
+                else if(s.eprocessor.eo_roulette.winner == -1)
+                {
+                    int i = s.map.GetCharacterIndex(victim_id);
+                    std::string name = "";
+                    if(i != -1) name = s.map.characters[i].name;
+                    std::string price = std::to_string(bet_price);
+                    s.eprocessor.DelayedMessage("You need to bet at least " + price + " gold (33% of the previous bet)."
+                                                ,1, 1, name);
+                }
+            }
+            else
+            {
+                can_play = true;
+            }
+
+            if(can_play || s.eprocessor.eo_roulette.winner != -1) s.eoclient.TradeAgree();
+        }
+    }
+    if(s.eprocessor.item_request.run || s.eprocessor.sitwin.run)
     {
         if(player_put_item && victim_put_item)
         {
@@ -455,7 +502,7 @@ void Trade_Agree(PacketReader reader) // trade agree status update
 
     if(!s.eprocessor.trade.get()) return;
 
-    short victim_gameworld_id = reader.GetShort();
+    /*short victim_gameworld_id = */reader.GetShort();
     unsigned char agree = reader.GetChar();
 
     s.eprocessor.trade->victim_accepted = agree;
@@ -472,6 +519,7 @@ void Trade_Use(PacketReader reader) // trade finished
 
     if(!s.eprocessor.trade.get()) return;
 
+    short victim_id = 0;
     short gameworld_id = reader.GetShort();
 
     s.eprocessor.trade->player_items.clear();
@@ -484,7 +532,10 @@ void Trade_Use(PacketReader reader) // trade finished
         if(gameworld_id == s.character.gameworld_id)
             s.eprocessor.trade->player_items.push_back(std::make_pair(item_id, item_amount));
         else
+        {
             s.eprocessor.trade->victim_items.push_back(std::make_pair(item_id, item_amount));
+            victim_id = gameworld_id;
+        }
     }
     reader.GetByte(); // 255
 
@@ -497,7 +548,10 @@ void Trade_Use(PacketReader reader) // trade finished
         if(gameworld_id == s.character.gameworld_id)
             s.eprocessor.trade->player_items.push_back(std::make_pair(item_id, item_amount));
         else
+        {
             s.eprocessor.trade->victim_items.push_back(std::make_pair(item_id, item_amount));
+            victim_id = gameworld_id;
+        }
     }
     reader.GetByte(); // 255
 
@@ -510,8 +564,22 @@ void Trade_Use(PacketReader reader) // trade finished
 
         if(id == 1 && s.eprocessor.eo_roulette.run)
         {
+            int i = s.map.GetCharacterIndex(victim_id);
             s.eprocessor.eo_roulette.gold_given += amount;
-            s.eprocessor.eo_roulette.payments++;
+            s.eprocessor.eo_roulette.payments.push_back(amount);
+            if(i != -1)
+            {
+                s.map.characters[i].eor_payments++;
+
+                bool playing = false;
+                for(unsigned int ii = 0; ii < s.eprocessor.eo_roulette.players.size(); ++ii)
+                {
+                    if(s.eprocessor.eo_roulette.players[ii].gameworld_id == victim_id)
+                        playing = true;
+                }
+
+                if(!playing) s.eprocessor.eo_roulette.players.push_back(s.map.characters[i]);
+            }
         }
         if(s.eprocessor.sitwin.run)
         {

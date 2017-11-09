@@ -36,6 +36,8 @@ EventProcessor::EventProcessor()
     }
 
     this->news.Load("news.ini");
+
+    this->line_clock.restart();
 }
 
 void EventProcessor::Process()
@@ -52,13 +54,13 @@ void EventProcessor::Process()
     this->item_request.Process();
     this->sitwin.Process();
     this->chat_bot.Process();
-    if(s.config.GetValue("ChaseBot") == "yes") this->chase_bot.Process();
     this->quest_gen.Process();
     this->market.Process();
 
-    if(this->help_message_clock.getElapsedTime().asSeconds() > 3600)
+    if(this->help_message_clock.getElapsedTime().asSeconds() > 1800)
     {
-        for(unsigned int i = 0; i < this->news.entries.size(); ++i)
+        if(this->news.entries.size() > 0)
+        for(unsigned int i = 0; i < 1; ++i)
         {
             this->DelayedMessage(this->news.entries[i].value);
         }

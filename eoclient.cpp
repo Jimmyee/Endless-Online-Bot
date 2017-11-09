@@ -135,7 +135,7 @@ void EOClient::Tick()
         char *databuff = new char[1024];
         std::size_t received = 0;
 
-        std::string data;
+        std::string data_;
         bool done = false;
         int oldlength;
 
@@ -169,42 +169,45 @@ void EOClient::Tick()
             datasize = this->length;
         }
 
-        data = this->recv_buffer.substr(0, datasize);
-        std::fill(this->recv_buffer.begin(), this->recv_buffer.begin() + datasize, '\0');
-        this->recv_buffer.erase(0, datasize);
+        if(this->recv_buffer.size() > 0)
+        {
+            data_ = this->recv_buffer.substr(0, datasize);
+            std::fill(this->recv_buffer.begin(), this->recv_buffer.begin() + std::min<std::size_t>(this->recv_buffer.length(), datasize), '\0');
+            this->recv_buffer.erase(0, datasize);
+        }
 
-        while (data.length() > 0 && !done)
+        while (data_.length() > 0 && !done)
         {
             switch (this->packet_state)
             {
                 case EOClient::PacketState::ReadLen1:
-                    this->raw_length[0] = data[0];
-                    data[0] = '\0';
-                    data.erase(0, 1);
+                    this->raw_length[0] = data_[0];
+                    data_[0] = '\0';
+                    data_.erase(0, 1);
                     this->packet_state = EOClient::PacketState::ReadLen2;
 
-                    if (data.length() == 0)
+                    if (data_.length() == 0)
                     {
                         break;
                     }
 
                 case EOClient::PacketState::ReadLen2:
-                    this->raw_length[1] = data[0];
-                    data[0] = '\0';
-                    data.erase(0, 1);
+                    this->raw_length[1] = data_[0];
+                    data_[0] = '\0';
+                    data_.erase(0, 1);
                     this->length = PacketProcessor::Number(this->raw_length[0], this->raw_length[1]);
                     this->packet_state = EOClient::PacketState::ReadData;
 
-                    if (data.length() == 0)
+                    if (data_.length() == 0)
                     {
                         break;
                     }
 
                 case EOClient::PacketState::ReadData:
                     oldlength = this->data.length();
-                    this->data += data.substr(0, this->length);
-                    std::fill(data.begin(), data.begin() + std::min<std::size_t>(data.length(), this->length), '\0');
-                    data.erase(0, this->length);
+                    this->data += data_.substr(0, this->length);
+                    std::fill(data_.begin(), data_.begin() + std::min<std::size_t>(data_.length(), this->length), '\0');
+                    data_.erase(0, this->length);
                     this->length -= this->data.length() - oldlength;
 
                     if (this->length == 0)
@@ -239,12 +242,12 @@ void EOClient::Tick()
             sf::Socket::Status status = this->socket->send(to_send, this->send_buffer.size(), sent);
             if(status == sf::Socket::Done)
             {
-                std::fill((std::begin((data))), (std::end((data))), '\0');
+                std::fill((std::begin((data_))), (std::end((data_))), '\0');
                 this->send_buffer.erase();
             }
             else if(status == sf::Socket::Partial)
             {
-                std::fill(data.begin(), data.begin() + sent, '\0');
+                std::fill(data_.begin(), data_.begin() + sent, '\0');
                 this->send_buffer.erase(sent);
             }
         }
@@ -317,7 +320,7 @@ void EOClient::RequestInit()
     builder.AddChar(28); // version
     builder.AddChar(2); // ?
     builder.AddChar(2); // ?
-    builder.AddString("56490234533"); // HDD ID
+    builder.AddString("56490234534"); // HDD ID
 
     this->Send(builder);
 }
@@ -367,7 +370,7 @@ void EOClient::AccountCreate(std::string username, std::string password, std::st
 	packet.AddBreakString(location);
 	packet.AddBreakString(email);
 	packet.AddBreakString(computer);
-	packet.AddBreakString("56781234567"); // HDD ID
+	packet.AddBreakString("56490234533"); // HDD ID
 	this->Send(packet);
 }
 

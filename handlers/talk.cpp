@@ -41,17 +41,6 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         {
             s.config.Reload("config.ini");
         }
-    }
-    if(name == s.config.GetValue("Master") && s.config.GetValue("MasterCommands") == "yes")
-    {
-        if(command == "relog")
-        {
-            s.eoclient.Disconnect();
-        }
-        else if(command == "face")
-        {
-            s.eoclient.Face((Direction)s.rand_gen.RandInt(0, 3));
-        }
         else if(command == "peekitem" && args.size() >= 2)
         {
             std::string item_name = "";
@@ -71,6 +60,23 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             std::string message = item_name;
             message += " amount: " + std::to_string(item_amount);
             ret.push_back(message);
+        }
+        else if(command == "sentence")
+        {
+            std::string message = s.eprocessor.chat_bot.GenerateLine();
+
+            if(!message.empty()) s.eprocessor.DelayedMessage(message, 1000);
+        }
+    }
+    if(name == s.config.GetValue("Master") && s.config.GetValue("MasterCommands") == "yes")
+    {
+        if(command == "relog")
+        {
+            s.eoclient.Disconnect();
+        }
+        else if(command == "face")
+        {
+            s.eoclient.Face((Direction)s.rand_gen.RandInt(0, 3));
         }
         else if(command == "tradeitem" && args.size() >= 3 && !s.eprocessor.BlockingEvent())
         {
@@ -215,7 +221,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             }
 
             int item_id = s.eif->GetByNameLowercase(item_name).id;
-            bool found = s.inventory.FindItem(item_id, 1);
+            bool found = true;//s.inventory.FindItem(item_id, 1);
 
             if(found)
             {
@@ -474,7 +480,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         std::string name_upper = name;
         name_upper[0] = std::toupper(name[0]);
 
-        s.eoclient.TalkPublic("Welcome to EORoulette! Please trade me gold (at least 2g) to begin the game. You've got 30 seconds.");
+        s.eoclient.TalkPublic("Welcome to EORoulette! Please trade me gold (at least 2g) to join the game. You've got 30 seconds.");
     }
     else if(command == "uptime")
     {
@@ -490,13 +496,14 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
     }
     else if(command == "trade")
     {
-        if(!s.eprocessor.trade.get() && s.eprocessor.eo_roulette.run)
+        int i = s.map.GetCharacterIndex(gameworld_id);
+        if(!s.eprocessor.trade.get() && s.eprocessor.eo_roulette.run && i != -1)
         {
-            if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.winner == -1 && s.eprocessor.eo_roulette.payments < 16)
+            if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.winner == -1 && s.map.characters[i].eor_payments < 16)
             {
                 s.eoclient.TradeRequest(gameworld_id);
             }
-            else if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.winner == -1 && s.eprocessor.eo_roulette.payments >= 16)
+            else if(!s.eprocessor.eo_roulette.play && s.eprocessor.eo_roulette.winner == -1 && s.map.characters[i].eor_payments >= 16)
             {
                 s.eprocessor.DelayedMessage("Sorry, trade limit reached. The game will start shortly", 1000);
             }
@@ -563,6 +570,13 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         if(!text.empty())
         {
             ret.push_back(text);
+        }
+    }
+    else if(command == "news")
+    {
+        for(unsigned int i = 0; i < s.eprocessor.news.entries.size(); ++i)
+        {
+            s.eprocessor.DelayedMessage(s.eprocessor.news.entries[i].value, 1, 1, name);
         }
     }
     else if(command == "hscore")
@@ -751,6 +765,16 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         {
             return ret;
         }
+
+        if(s.eprocessor.line_clock.getElapsedTime().asSeconds() < 32)
+        {
+            int elapsed = 32 - s.eprocessor.line_clock.getElapsedTime().asSeconds();
+            s.eprocessor.DelayedMessage("Sorry, you need to wait " + std::to_string(elapsed) +
+                                        " seconds more due to spam protection.", 1000, 1, name);
+            return ret;
+        }
+
+        s.eprocessor.line_clock.restart();
 
         std::string message = s.eprocessor.chat_bot.config.entries[s.rand_gen.RandInt(0, s.eprocessor.chat_bot.config.entries.size() - 1)].value;
         s.eprocessor.DelayedMessage(message, 1000);
@@ -1100,7 +1124,7 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         delay_message.victim_name = name;
         s.eprocessor.DelayedMessage(delay_message);
 
-        for(unsigned int i = 0; i < offers.size(); ++i)
+        for(std::size_t i = 0; i < offers.size(); ++i)
         {
             std::string offer_id = std::to_string(offers[i].id);
             std::string transaction_type = offers[i].transaction_type == 0? "BUY" : "SELL";
@@ -1345,12 +1369,12 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
             return ret;
         }
 
-        if(s.eprocessor.GetJokeAmount(name) >= 33)
+        if(s.eprocessor.GetJokeAmount(name) >= 333)
         {
             s.eprocessor.RemoveJokeOf(name);
         }
 
-        if(s.eprocessor.jokes.size() >= 3300)
+        if(s.eprocessor.jokes.size() >= 33300)
         {
             s.eprocessor.jokes.erase(s.eprocessor.jokes.begin());
         }
@@ -1384,13 +1408,13 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
 
         if(joke.Get() == "")
         {
-            s.eprocessor.DelayedMessage("Sorry, no new jokes available. Please try again later.", 1000);
+            s.eprocessor.DelayedMessage("Sorry, no new jokes available. Please try again later.", 1000, 1, name);
             return ret;
         }
 
         int id = s.eprocessor.GetJokeID(joke.Get());
 
-        s.eprocessor.DelayedMessage(std::string() + "#" + std::to_string(id) + ": " + joke.Get(), 1000);
+        s.eprocessor.DelayedMessage(std::string() + "#" + std::to_string(id) + ": " + joke.Get(), 1000, 1, name);
     }
     else if(command == "joke" && args.size() >= 2)
     {
@@ -1399,7 +1423,9 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         Joke joke = s.eprocessor.GetJokeByID(id);
 
         if(joke.Get() != "")
-            s.eprocessor.DelayedMessage(std::string() + "#" + std::to_string(id) + ": " + joke.Get(), 1000, channel, name);
+        {
+            s.eprocessor.DelayedMessage(std::string() + "#" + std::to_string(id) + ": " + joke.Get(), 1000, 1, name);
+        }
     }
     else if(command == "votejoke" && args.size() >= 2)
     {
@@ -1432,16 +1458,11 @@ std::vector<std::string> ProcessCommand(std::string name, std::string message, s
         if(joke.Get() != "")
         {
             int id = s.eprocessor.GetJokeID(joke.Get());
-            s.eprocessor.DelayedMessage(std::string() + "#" + std::to_string(id) + ": " + joke.Get(), 1000);
+            s.eprocessor.DelayedMessage(std::string() + "#" + std::to_string(id) + ": " + joke.Get(), 1000, 1, name);
         }
     }
-    else if(command == "welcome")
-    {
-        for(unsigned int i = 0; i < s.eprocessor.news.entries.size(); ++i)
-        {
-            s.eprocessor.DelayedMessage(s.eprocessor.news.entries[i].value);
-        }
-    }
+
+    if(char_index == -1) return ret;
 
     Character character = s.map.characters[char_index];
 
@@ -1462,10 +1483,7 @@ void Talk_Player(PacketReader reader)
 
     std::string name = "[Unknown]";
     int i = s.map.GetCharacterIndex(gameworld_id);
-    if(i != -1)
-    {
-        name = s.map.characters[i].name;
-    }
+    if(i != -1) name = s.map.characters[i].name;
 
     if(message[0] == '#')
     {
@@ -1504,13 +1522,15 @@ void Talk_Tell(PacketReader reader)
     std::string name = reader.GetBreakString();
 	std::string message = reader.GetBreakString();
 
-	if(message[0] == '#')
+	if(message[0] == '#' && message.length() > 1)
     {
         message.erase(0, 1);
 
         int index = s.map.GetCharacterIndex(name);
+        short gameworld_id = 0;
+        if(index != -1) gameworld_id = s.map.characters[index].gameworld_id;
 
-        std::vector<std::string> ret = ProcessCommand(name, message, s.map.characters[index].gameworld_id, 1);
+        std::vector<std::string> ret = ProcessCommand(name, message, gameworld_id, 1);
         for(unsigned int i = 0; i < ret.size(); ++i)
         {
             DelayMessage delay_message(ret[i], 1000);
@@ -1533,8 +1553,10 @@ void Talk_Message(PacketReader reader)
         message.erase(0, 1);
 
         int index = s.map.GetCharacterIndex(name);
+        short gameworld_id = 0;
+        if(index != -1) gameworld_id = s.map.characters[index].gameworld_id;
 
-        std::vector<std::string> ret = ProcessCommand(name, message, s.map.characters[index].gameworld_id);
+        std::vector<std::string> ret = ProcessCommand(name, message, gameworld_id);
         for(unsigned int i = 0; i < ret.size(); ++i)
         {
             EventProcessor::DelayMessage delay_message(ret[i], 1000);

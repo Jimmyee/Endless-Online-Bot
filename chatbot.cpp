@@ -1,10 +1,35 @@
 #include "chatbot.hpp"
 #include "singleton.hpp"
 
+std::vector<std::string> GetWords(std::string message)
+{
+    std::vector<std::string> words;
+    std::string word;
+    for(unsigned int i = 0; i < message.length(); ++i)
+    {
+        if((message[i] == ' ' || i == message.length() - 1) && !word.empty())
+        {
+            words.push_back(word);
+            word.clear();
+        }
+        else if(message[i] != ' ')
+        {
+            word += message[i];
+        }
+    }
+
+    return words;
+}
+
 ChatBot::ChatBot()
 {
     this->config.Load("./chatbot.txt");
     this->clock.restart();
+}
+
+ChatBot::~ChatBot()
+{
+    this->Save();
 }
 
 void ChatBot::Save()
@@ -44,28 +69,14 @@ void ChatBot::ProcessMessage(std::string message)
             entry.value = message;
             this->config.entries.push_back(entry);
 
-            if(this->config.entries.size() > 900)
+            if(this->config.entries.size() > 33300)
             {
                 this->config.entries.erase(this->config.entries.begin());
             }
         }
     }
 
-    std::vector<std::string> words;
-    std::string word;
-    for(unsigned int i = 0; i < message.length(); ++i)
-    {
-        if((message[i] == ' ' || i == message.length() - 1) && !word.empty())
-        {
-            words.push_back(word);
-            word.clear();
-        }
-        else if(message[i] != ' ')
-        {
-            word += message[i];
-        }
-    }
-
+    std::vector<std::string> words = GetWords(message);
     std::vector<std::string> message_proposals;
 
     for(unsigned int i = 0; i < this->config.entries.size(); ++i)
@@ -85,7 +96,36 @@ void ChatBot::ProcessMessage(std::string message)
     }
 }
 
-ChatBot::~ChatBot()
+std::string ChatBot::GenerateLine()
 {
-    this->Save();
+    S &s = S::GetInstance();
+    unsigned int generate_words = s.rand_gen.RandInt(3, 12);
+    std::string message;
+
+    int word_count = 0;
+    int word_count_max = s.rand_gen.RandInt(3, 12);
+    for(unsigned int i = 0; i < generate_words; ++i)
+    {
+        if(this->config.entries.size() == 0) break;
+
+        int rand_entry = s.rand_gen.RandInt(0, this->config.entries.size() - 1);
+        std::vector<std::string> words = GetWords(this->config.entries[rand_entry].value);
+
+        if(word_count >= word_count_max) word_count = 0;
+        int start_ii = s.rand_gen.RandInt(0, words.size() - 1);
+        for(unsigned int ii = start_ii; ii < words.size(); ++ii)
+        {
+            if(word_count < word_count_max)
+            {
+                message += message.empty()? words[ii] : " " + words[ii];
+                word_count++;
+            }
+            else
+            {
+                break;
+            }
+        }
+    }
+
+    return message;
 }

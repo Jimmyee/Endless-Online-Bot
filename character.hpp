@@ -69,6 +69,7 @@ public:
     unsigned char visibility;
 
     sf::Clock command_clock;
+    int eor_payments;
 
     Character();
 };

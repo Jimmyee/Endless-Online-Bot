@@ -6,7 +6,6 @@
 
 #include "chatbot.hpp"
 #include "eoroulette.hpp"
-#include "chasebot.hpp"
 #include "itemreq.hpp"
 #include "sitwin.hpp"
 #include "questgen.hpp"
@@ -49,7 +48,6 @@ struct EventProcessor
     std::vector<DelayMessage> d_messages;
     sf::Clock autosave_clock;
     EORoulette eo_roulette;
-    ChaseBot chase_bot;
     sf::Clock uptime_clock;
     sf::Clock refresh_clock;
     ItemRequest item_request;
@@ -62,6 +60,7 @@ struct EventProcessor
     std::vector<Joke> jokes;
     Config news;
     Chamber chamber;
+    sf::Clock line_clock;
 
     EventProcessor();
 

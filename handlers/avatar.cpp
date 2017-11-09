@@ -15,9 +15,4 @@ void Avatar_Remove(PacketReader reader)
     }
 
     s.map.RemoveCharacter(gameworld_id);
-
-    if(gameworld_id == s.eprocessor.chase_bot.victim_gameworld_id)
-    {
-        s.eprocessor.chase_bot.victim_gameworld_id = -1;
-    }
 }

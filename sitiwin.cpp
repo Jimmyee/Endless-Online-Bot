@@ -1,5 +1,6 @@
 #include "sitwin.hpp"
 #include "singleton.hpp"
+#include "const/character.hpp"
 
 SitWin::SitWin(short item_id, short gameworld_id, short item_amount)
 {
@@ -36,6 +37,7 @@ void SitWin::Run(short gameworld_id)
     this->reminder_clock.restart();
 
     S::GetInstance().eoclient.TradeRequest(this->gameworld_id);
+    S::GetInstance().eoclient.Sit(SitAction::Sit);
 }
 
 void SitWin::Process()
@@ -91,11 +93,12 @@ void SitWin::Process()
                 this->run = false;
 
             }
+
+            S::GetInstance().eoclient.Sit(SitAction::Stand);
         }
         else
         {
             int elapsed = this->clock.getElapsedTime().asSeconds();
-            //int elapsed_reminder = this->reminder_clock.getElapsedTime().asSeconds();
             if(elapsed >= 30)
             {
                 if(this->winner == -1)
@@ -114,6 +117,7 @@ void SitWin::Process()
                         this->gameworld_id = -1;
                         this->run = false;
                         s.eoclient.TalkPublic("Game canceled: no item selected.");
+                        S::GetInstance().eoclient.Sit(SitAction::Stand);
                     }
                 }
                 else
@@ -126,6 +130,7 @@ void SitWin::Process()
                     s.eoclient.TalkPublic("Time's up. The game has been finished.");
                     this->gameworld_id = -1;
                     this->run = false;
+                    S::GetInstance().eoclient.Sit(SitAction::Stand);
                 }
             }
         }

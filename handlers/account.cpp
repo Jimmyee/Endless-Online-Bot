@@ -7,8 +7,6 @@
 
 void Account_Reply(PacketReader reader)
 {
-    //S &s = S::GetInstance();
-
     AccountReply reply = static_cast<AccountReply>(reader.GetShort());
     std::string reply_str = reader.GetEndString();
 

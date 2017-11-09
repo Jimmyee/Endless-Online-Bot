@@ -18,6 +18,7 @@ struct ChatBot
     std::string GetMessage(std::string message);
     void Process();
     void ProcessMessage(std::string message);
+    std::string GenerateLine();
 };
 
 #endif // CHATBOT_HPP_INCLUDED

@@ -2,6 +2,7 @@
 #define EOROULETTE_HPP_INCLUDED
 
 #include "config.hpp"
+#include "character.hpp"
 
 #include <SFML/System.hpp>
 
@@ -23,7 +24,8 @@ struct EORoulette
     bool jackpot;
     int jp_time;
     Config jpconfig;
-    int payments;
+    std::vector<int> payments;
+    std::vector<Character> players;
 
     EORoulette();
     void Run(short gameworld_id);
